@@ -229,18 +229,18 @@ button:hover {
 }
 
 .action-btn {
-    padding: 12px 0;                   /* vertical padding only – width is fixed */
+    padding: 12px 0;
     font-size: 1rem;
     font-weight: 600;
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.2s;
-    width: 180px;                      /* fixed width – keeps them equal */
-    height: 48px;                      /* fixed height – makes Add & Edit/Cancel identical */
+    width: 180px;                     /* exact fixed width */
+    height: 48px;                     /* exact fixed height */
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: ellipsis;          /* cuts off long text with ... */
     border: none;
     color: white;
     display: flex;
@@ -251,8 +251,6 @@ button:hover {
 
 .action-btn.add {
     background: #c8102e;
-    color: white;
-    text-decoration: none;     /* removes underline */
 }
 
 .action-btn.add:hover {
@@ -270,7 +268,7 @@ button:hover {
 }
 
 .action-btn.delete {
-    background: #dc2626;           /* red for danger */
+    background: #dc2626;
 }
 
 .action-btn.delete:hover {
@@ -597,4 +595,35 @@ button:hover {
 /* Prevent scroll when modal open */
 body.modal-open {
     overflow: hidden;
+}
+
+.fiscal-filter {
+    margin-right: 16px;          /* space before action buttons */
+}
+
+.fiscal-filter select {
+    padding: 12px 16px 12px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    min-width: 220px;            /* same as your old button min-width */
+    background: #c8102e;         /* BatStateU red – matches old button */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    appearance: none;            /* remove default arrow */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 12px;
+    transition: background 0.2s;
+}
+
+.fiscal-filter select:hover {
+    background-color: #a00d24;   /* darker red hover – same as button */
+}
+
+.fiscal-filter select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.3);
 }

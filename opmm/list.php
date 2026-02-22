@@ -9,6 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once '../config/db.php';
 
+// ── Fetch the list of quarter/year combinations ───────────────────────────────
 try {
     $stmt = $pdo->query("
         SELECT id, fiscal_year, quarter
@@ -22,6 +23,19 @@ try {
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
     $entries = [];
+}
+
+// ── Fetch distinct fiscal years for the dropdown ──────────────────────────────
+try {
+    $fyStmt = $pdo->query("
+        SELECT DISTINCT fiscal_year
+        FROM opmm_entries
+        WHERE status = 'active'
+        ORDER BY fiscal_year DESC
+    ");
+    $fiscalYears = $fyStmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    $fiscalYears = [];
 }
 ?>
 
@@ -51,7 +65,14 @@ try {
 
     <main class="dashboard-content">
         <div class="filter-actions">
-            <button class="filter-button">Filter by Fiscal Year ▼</button>
+            <div class="fiscal-filter">
+    <select id="fiscal-year-select" onchange="filterByYear(this.value)">
+        <option value="">All Fiscal Years</option>
+        <?php foreach ($fiscalYears as $fy): ?>
+            <option value="<?= htmlspecialchars($fy) ?>"><?= htmlspecialchars($fy) ?></option>
+        <?php endforeach; ?>
+    </select>
+</div>
             <div class="action-buttons">
                 <a href="add.php" class="action-btn add">+ Add New OPMM</a>
             </div>
@@ -150,6 +171,40 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     modal.classList.remove('active');
     document.body.classList.remove('modal-open');
+}
+
+function toggleFiscalDropdown() {
+    const dropdown = document.getElementById('fiscal-dropdown');
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+function filterByYear(year) {
+    const items = document.querySelectorAll('.quarter-item');
+
+    items.forEach(item => {
+        const btn = item.querySelector('.quarter-btn');
+        if (!btn) {
+            item.style.display = 'none';
+            return;
+        }
+
+        const text = btn.textContent.trim();
+        // Try to extract the last 4-digit year in the string
+        const match = text.match(/(\d{4})(?:-(\d{4}))?$/i);
+        
+        let displayedYear = '';
+        if (match) {
+            // Use the second year if it's a range, otherwise the single year
+            displayedYear = match[2] || match[1];
+        }
+
+        // Show item if: no filter OR matches selected year
+        const shouldShow = !year || displayedYear === year;
+        item.style.display = shouldShow ? 'flex' : 'none';
+    });
+
+    // Optional: close dropdown after selection
+    document.getElementById('fiscal-dropdown').style.display = 'none';
 }
 
 // Close when clicking outside modal
