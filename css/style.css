@@ -1,0 +1,600 @@
+/* General */
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #f9fafb;       /* very light gray-white */
+    margin: 0;
+    padding: 20px;
+    color: #4b5563;                  /* dark gray text */
+}
+
+h1, h2, h3 {
+    color: #c8102e;                  /* BatStateU red */
+}
+
+/* Form elements */
+form {
+    max-width: 400px;
+    margin: 40px auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+input:focus {
+    outline: none;
+    border-color: #c8102e;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.2);
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    margin: 12px 0;
+    background: #c8102e;             /* BatStateU red */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+button:hover {
+    background: #a00d24;             /* darker red on hover */
+}
+
+/* Login page */
+.login-container {
+    max-width: 420px;
+    margin: 80px auto;
+    padding: 40px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.login-container h1 {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.error {
+    color: #c8102e;
+    background: #fee2e2;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.info {
+    margin-top: 20px;
+    font-size: 0.95rem;
+    color: #6b7280;
+    text-align: center;
+}
+
+/* Top bar (Header) */
+.top-bar {
+    background: #c8102e;             /* BatStateU red */
+    color: white;
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+}
+
+.logo-text {
+    font-size: 1.6rem;
+    font-weight: bold;
+}
+
+.main-nav {
+    display: flex;
+    gap: 24px;
+}
+
+.nav-button {
+    color: white;
+    text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.nav-button:hover,
+.nav-button.active {
+    background: rgba(255,255,255,0.15);
+}
+
+.logout {
+    margin-left: auto;
+}
+
+/* Filter section */
+.filter-section {
+    margin: 32px 0;
+    text-align: center;
+}
+
+.filter-button {
+    background: #c8102e;
+    color: white;
+    border: none;
+    padding: 12px 24px;           /* balanced size — not too big, not too small */
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    min-width: 220px;             /* consistent minimum width */
+    text-align: center;
+}
+
+.filter-button:hover {
+    background: #a00d24;
+}
+
+/* Summary cards */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    margin: 40px 0;
+}
+
+.summary-card {
+    background: white;
+    padding: 24px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    text-align: center;
+    border-top: 4px solid #c8102e;
+}
+
+.summary-card h3 {
+    margin: 0 0 16px;
+    font-size: 1.15rem;
+    color: #4b5563;
+}
+
+.summary-card .placeholder {
+    font-size: 2.2rem;
+    font-weight: bold;
+    color: #c8102e;
+}
+
+/* Chart area placeholder */
+.chart-area {
+    background: white;
+    padding: 48px;
+    border-radius: 10px;
+    text-align: center;
+    color: #6b7280;
+    min-height: 320px;
+    border: 1px dashed #d1d5db;
+}
+
+.coming-soon {
+    font-style: italic;
+    font-size: 1.1rem;
+}
+
+
+/* Filter + Actions row */
+.filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin: 32px 0;
+    justify-content: flex-start;
+}
+
+.filter-button.short {
+    padding: 12px 20px;          /* shorter than home page */
+    font-size: 1rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.action-btn {
+    padding: 12px 0;                   /* vertical padding only – width is fixed */
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: 180px;                      /* fixed width – keeps them equal */
+    height: 48px;                      /* fixed height – makes Add & Edit/Cancel identical */
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.action-btn.add {
+    background: #c8102e;
+    color: white;
+    text-decoration: none;     /* removes underline */
+}
+
+.action-btn.add:hover {
+    background: #a00d24;
+}
+
+.action-btn.edit,
+.cancel-edit {
+    background: #6b7280;
+}
+
+.action-btn.edit:hover,
+.cancel-edit:hover {
+    background: #4b5563;
+}
+
+.action-btn.delete {
+    background: #dc2626;           /* red for danger */
+}
+
+.action-btn.delete:hover {
+    background: #b91c1c;
+}
+
+.action-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.cancel-delete {
+    background: #6b7280 !important;
+    border: 2px solid #4b5563 !important;
+}
+
+.cancel-delete:hover {
+    background: #4b5563 !important;
+}
+
+/* Scrollable quarter/year buttons */
+.quarter-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.quarter-scroll-container {
+    overflow-x: hidden;          /* or just remove overflow-x */
+    white-space: normal;         /* allow wrapping to new lines */
+    padding: 12px 0;
+    margin: 24px 0;
+}
+
+.quarter-scroll-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.quarter-scroll-container::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    border-radius: 4px;
+}
+
+.quarter-scroll-container::-webkit-scrollbar-thumb {
+    background: #c8102e;
+    border-radius: 4px;
+}
+
+.quarter-buttons {
+    display: flex;
+    flex-direction: column;      /* ← key change: vertical stack */
+    gap: 12px;                   /* space between buttons */
+    max-width: 100%;             /* prevent overflow */
+}
+
+.quarter-btn {
+    flex: 1;
+    text-align: left;
+    padding: 14px 20px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    color: #374151;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-right: 16px;
+}
+
+.quarter-btn:hover {
+    background: #fef2f2;           /* light red tint on hover */
+    border-color: #c8102e;
+    transform: translateX(4px);    /* subtle movement */
+    box-shadow: 0 2px 8px rgba(200, 16, 46, 0.15);
+}
+
+/*
+.quarter-btn.active {
+    background: #c8102e;
+    color: white;
+    border-color: #c8102e;
+    font-weight: 600;
+} */
+
+.edit-icon {
+    display: none;
+    font-size: 1.3rem;
+    color: #6b7280;
+    margin-left: auto;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.edit-icon-btn {
+    color: #4b5563;
+}
+
+.edit-icon-btn:hover {
+    background: #fef2f2;
+    color: #c8102e;
+}
+
+.edit-mode-container.edit-mode-active .edit-icon {
+    display: inline-block;
+}
+
+.edit-mode-container.edit-mode-active .quarter-btn:hover .edit-icon {
+    color: #c8102e;
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+.delete-icon {
+    display: none;
+    font-size: 1.3rem;
+    color: #dc2626;
+    margin-left: auto;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.delete-icon-btn {
+    color: #dc2626;
+}
+
+.delete-icon-btn:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.delete-mode-active .delete-icon {
+    display: inline-block;
+}
+
+.delete-mode-active .quarter-btn:hover .delete-icon {
+    color: #b91c1c;
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+/* Show only in respective modes */
+.edit-mode-active .edit-icon-btn,
+.delete-mode-active .delete-icon-btn {
+    display: flex !important;
+}
+
+/* Style for Cancel Edit button */
+.cancel-edit {
+    background: #6b7280 !important;
+    border: 2px solid #4b5563 !important;
+}
+
+.cancel-edit:hover {
+    background: #4b5563 !important;
+}
+
+/* Placeholder */
+.content-placeholder {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    color: #6b7280;
+    min-height: 200px;
+}
+
+/* Password field with inline eye icon */
+.password-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding: 12px 48px 12px 12px;  /* right padding for eye */
+    box-sizing: border-box;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 30%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;               /* gray at rest */
+    transition: none;             /* remove color transition */
+}
+
+/* Optional: subtle background on hover instead of color change */
+.toggle-password:hover,
+.toggle-password:focus {
+    background: rgba(200, 16, 46, 0.08);  /* very light red tint – optional */
+    outline: none;
+}
+
+.toggle-password .material-icons {
+    font-size: 1.4rem;
+}
+
+/* add confirmation */
+
+.confirmation-box {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    max-width: 500px;
+    margin: 32px auto;
+    text-align: center;
+}
+
+.confirmation-box h2 {
+    margin-bottom: 24px;
+    color: #c8102e;
+}
+
+.cancel-link {
+    display: inline-block;
+    margin-left: 16px;
+    color: #6b7280;
+    text-decoration: none;
+    padding: 12px 24px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+.cancel-link:hover {
+    background: #f3f4f6;
+}
+
+/* Modal overlay (full screen, darkened background) */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+/* Active modal */
+.modal-overlay.active {
+    display: flex !important;
+}
+
+/* Modal box (centered white panel) */
+.modal-box {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Close button */
+.close-modal {
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+.close-modal:hover {
+    color: #c8102e;
+}
+
+/* Modal action buttons row */
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    justify-content: flex-end;
+}
+
+.modal-actions button {
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.danger-btn {
+    background: #dc2626;
+    color: white;
+    border: none;
+}
+
+.danger-btn:hover {
+    background: #b91c1c;
+}
+
+/* Prevent scroll when modal open */
+body.modal-open {
+    overflow: hidden;
+}
