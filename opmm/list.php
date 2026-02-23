@@ -14,7 +14,7 @@ try {
         SELECT id, fiscal_year, quarter, title, date_duration,
                beneficiaries_male, beneficiaries_female, beneficiaries_department,
                location, extensionists, partner_agencies, budget_allocation, source_of_fund,
-               created_at
+               frequency_monitoring, created_at
         FROM ppa_entries
         WHERE status = 'active'
         ORDER BY created_at DESC
@@ -23,19 +23,6 @@ try {
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
     $entries = [];
-}
-
-// Fetch distinct fiscal years
-try {
-    $fyStmt = $pdo->query("
-        SELECT DISTINCT fiscal_year
-        FROM ppa_entries
-        WHERE status = 'active'
-        ORDER BY fiscal_year DESC
-    ");
-    $fiscalYears = $fyStmt->fetchAll(PDO::FETCH_COLUMN);
-} catch (PDOException $e) {
-    $fiscalYears = [];
 }
 ?>
 
@@ -57,6 +44,8 @@ try {
             <span class="logo-text">PPA Dashboard</span>
         </div>
         <nav class="main-nav">
+            <a href="../index.php" class="nav-button">Home</a>
+            <a href="list.php" class="nav-button active">PPA</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>
@@ -70,20 +59,22 @@ try {
         </div>
 
         <div class="quarter-scroll-container">
-            <div class="quarter-buttons edit-mode-container">
+            <div class="quarter-buttons edit-mode-container" id="ppa-list">
                 <?php if (!empty($error)): ?>
                     <p class="error"><?= htmlspecialchars($error) ?></p>
                 <?php elseif (empty($entries)): ?>
                     <p>No PPA entries found yet.</p>
                 <?php else: ?>
                     <?php foreach ($entries as $entry): ?>
-                        <div class="quarter-item">
+                        <div class="quarter-item"
+                             data-frequency="<?= htmlspecialchars($entry['frequency_monitoring'] ?? '') ?>">
                             <button class="quarter-btn" 
                                     onclick="window.location.href='view.php?id=<?= $entry['id'] ?>'"
                                     title="<?= htmlspecialchars($entry['title']) ?>">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($entry['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
                                     <?= htmlspecialchars($entry['quarter']) ?> Quarter, FY <?= htmlspecialchars($entry['fiscal_year']) ?>
+                                    <?= $entry['frequency_monitoring'] ? ' · ' . htmlspecialchars($entry['frequency_monitoring']) : '' ?>
                                 </span>
                             </button>
 
@@ -101,6 +92,7 @@ try {
                                     data-partners="<?= htmlspecialchars($entry['partner_agencies'] ?? '') ?>"
                                     data-budget="<?= $entry['budget_allocation'] ?? 0 ?>"
                                     data-fund="<?= htmlspecialchars($entry['source_of_fund'] ?? '') ?>"
+                                    data-frequency="<?= htmlspecialchars($entry['frequency_monitoring'] ?? '') ?>"
                                     title="Edit entry">
                                 <span class="material-icons">edit</span>
                             </button>
@@ -128,26 +120,19 @@ try {
             <h2>Filter PPA Entries</h2>
 
             <form id="filter-form">
-                <label for="filter-fiscal">Fiscal Year</label>
-                <select id="filter-fiscal" name="fiscal">
-                    <option value="">All Fiscal Years</option>
-                    <?php foreach ($fiscalYears as $fy): ?>
-                        <option value="<?= htmlspecialchars($fy) ?>"><?= htmlspecialchars($fy) ?></option>
-                    <?php endforeach; ?>
-                </select>
-
-                <label for="filter-quarter">Quarter</label>
-                <select id="filter-quarter" name="quarter">
-                    <option value="">All Quarters</option>
-                    <option value="1st">1st Quarter</option>
-                    <option value="2nd">2nd Quarter</option>
-                    <option value="3rd">3rd Quarter</option>
-                    <option value="4th">4th Quarter</option>
+                <label for="filter-frequency">Frequency of Monitoring</label>
+                <select id="filter-frequency" name="frequency">
+                    <option value="">All Frequencies</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Quarterly">Quarterly</option>
+                    <option value="Semi-annual">Semi-annual</option>
+                    <option value="Annual">Annual</option>
                 </select>
 
                 <div class="modal-actions">
                     <button type="submit">Apply Filter</button>
                     <button type="button" onclick="closeModal('filter-modal')">Cancel</button>
+                    <button type="button" id="clear-filter">Clear Filter</button>
                 </div>
             </form>
         </div>
@@ -196,6 +181,15 @@ try {
                 <label for="edit-partners">Partner Agencies</label>
                 <input type="text" name="partner_agencies" id="edit-partners" placeholder="e.g., LGU Lipa City, DSWD">
 
+                <label for="edit-frequency">Frequency of Monitoring</label>
+                <select name="frequency_monitoring" id="edit-frequency" required>
+                    <option value="">Select frequency</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Quarterly">Quarterly</option>
+                    <option value="Semi-annual">Semi-annual</option>
+                    <option value="Annual">Annual</option>
+                </select>
+
                 <label for="edit-budget">Budget Allocation (₱)</label>
                 <input type="number" name="budget_allocation" id="edit-budget" step="0.01" min="0" required>
 
@@ -241,13 +235,12 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-open');
 }
 
-// Filter modal submit
-document.getElementById('filter-form')?.addEventListener('submit', function(e) {
-    e.preventDefault();
+function toggleFiscalDropdown() {
+    const dropdown = document.getElementById('fiscal-dropdown');
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
 
-    const fiscal = document.getElementById('filter-fiscal').value;
-    const quarter = document.getElementById('filter-quarter').value;
-
+function filterByYear(year) {
     const items = document.querySelectorAll('.quarter-item');
     items.forEach(item => {
         const btn = item.querySelector('.quarter-btn');
@@ -257,19 +250,39 @@ document.getElementById('filter-form')?.addEventListener('submit', function(e) {
         }
 
         const text = btn.textContent.trim();
-        const fiscalMatch = text.match(/FY (\d{4})/);
-        const quarterMatch = text.match(/(1st|2nd|3rd|4th) Quarter/);
+        const match = text.match(/(\d{4})(?:-(\d{4}))?$/i);
+        let displayedYear = '';
+        if (match) {
+            displayedYear = match[2] || match[1];
+        }
 
-        const itemFiscal = fiscalMatch ? fiscalMatch[1] : '';
-        const itemQuarter = quarterMatch ? quarterMatch[1] : '';
-
-        const fiscalMatchOk = !fiscal || itemFiscal === fiscal;
-        const quarterMatchOk = !quarter || itemQuarter === quarter;
-
-        item.style.display = (fiscalMatchOk && quarterMatchOk) ? 'flex' : 'none';
+        const shouldShow = !year || displayedYear === year;
+        item.style.display = shouldShow ? 'flex' : 'none';
     });
 
-    closeModal('filter-modal');
+    document.getElementById('fiscal-dropdown').style.display = 'none';
+}
+
+// Edit modal population
+document.querySelectorAll('.edit-icon-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+        document.getElementById('edit-id').value = this.dataset.id;
+        document.getElementById('edit-quarter').value = this.dataset.quarter;
+        document.getElementById('edit-fiscal').value = this.dataset.fiscal;
+        document.getElementById('edit-title').value = this.dataset.title;
+        document.getElementById('edit-date-duration').value = this.dataset.dateDuration;
+        document.getElementById('edit-male').value = this.dataset.male;
+        document.getElementById('edit-female').value = this.dataset.female;
+        document.getElementById('edit-department').value = this.dataset.dept;
+        document.getElementById('edit-location').value = this.dataset.location;
+        document.getElementById('edit-extensionists').value = this.dataset.extensionists;
+        document.getElementById('edit-partners').value = this.dataset.partners;
+        document.getElementById('edit-budget').value = this.dataset.budget;
+        document.getElementById('edit-fund').value = this.dataset.fund;
+        document.getElementById('edit-frequency').value = this.dataset.frequency;
+
+        openModal('edit-modal');
+    });
 });
 
 // Close when clicking outside modal

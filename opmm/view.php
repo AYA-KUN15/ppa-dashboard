@@ -62,27 +62,28 @@ try {
 
     <?php if ($entry): ?>
         <div class="view-table">
-            <table>
-                <tr><th>Fiscal Year</th><td><?= htmlspecialchars($entry['fiscal_year']) ?></td></tr>
-                <tr><th>Quarter</th><td><?= htmlspecialchars($entry['quarter']) ?></td></tr>
-                <tr><th>Title</th><td><?= htmlspecialchars($entry['title']) ?></td></tr>
-                <tr><th>Date / Duration</th><td><?= htmlspecialchars($entry['date_duration']) ?></td></tr>
-                <tr><th>Beneficiaries (Male)</th><td><?= htmlspecialchars($entry['beneficiaries_male']) ?></td></tr>
-                <tr><th>Beneficiaries (Female)</th><td><?= htmlspecialchars($entry['beneficiaries_female']) ?></td></tr>
-                <tr><th>Beneficiary Department</th><td><?= htmlspecialchars($entry['beneficiaries_department'] ?: 'N/A') ?></td></tr>
-                <tr><th>Location</th><td><?= htmlspecialchars($entry['location']) ?></td></tr>
-                <tr><th>Extensionists</th><td><?= htmlspecialchars($entry['extensionists']) ?></td></tr>
-                <tr><th>Partner Agencies</th><td><?= htmlspecialchars($entry['partner_agencies'] ?: 'N/A') ?></td></tr>
-                <tr><th>Budget Allocation</th><td>₱<?= number_format($entry['budget_allocation'], 2) ?></td></tr>
-                <tr><th>Source of Fund</th><td><?= htmlspecialchars($entry['source_of_fund'] ?: 'N/A') ?></td></tr>
-                <tr><th>Created</th><td><?= date('M d, Y h:i A', strtotime($entry['created_at'])) ?></td></tr>
-                <tr><th>Last Updated</th><td><?= date('M d, Y h:i A', strtotime($entry['updated_at'])) ?></td></tr>
-            </table>
+    <table>
+        <tr><th>Fiscal Year</th><td><?= htmlspecialchars($entry['fiscal_year']) ?></td></tr>
+        <tr><th>Quarter</th><td><?= htmlspecialchars($entry['quarter']) ?></td></tr>
+        <tr><th>Title</th><td><?= htmlspecialchars($entry['title']) ?></td></tr>
+        <tr><th>Date / Duration</th><td><?= htmlspecialchars($entry['date_duration']) ?></td></tr>
+        <tr><th>Beneficiaries (Male)</th><td><?= htmlspecialchars($entry['beneficiaries_male']) ?></td></tr>
+        <tr><th>Beneficiaries (Female)</th><td><?= htmlspecialchars($entry['beneficiaries_female']) ?></td></tr>
+        <tr><th>Beneficiary Department</th><td><?= htmlspecialchars($entry['beneficiaries_department'] ?: 'N/A') ?></td></tr>
+        <tr><th>Location</th><td><?= htmlspecialchars($entry['location']) ?></td></tr>
+        <tr><th>Extensionists</th><td><?= htmlspecialchars($entry['extensionists']) ?></td></tr>
+        <tr><th>Partner Agencies</th><td><?= htmlspecialchars($entry['partner_agencies'] ?: 'N/A') ?></td></tr>
+        <tr><th>Frequency of Monitoring</th><td><?= htmlspecialchars($entry['frequency_monitoring'] ?: 'N/A') ?></td></tr>
+        <tr><th>Budget Allocation</th><td>₱<?= number_format($entry['budget_allocation'], 2) ?></td></tr>
+        <tr><th>Source of Fund</th><td><?= htmlspecialchars($entry['source_of_fund'] ?: 'N/A') ?></td></tr>
+        <tr><th>Created</th><td><?= date('M d, Y h:i A', strtotime($entry['created_at'])) ?></td></tr>
+        <tr><th>Last Updated</th><td><?= date('M d, Y h:i A', strtotime($entry['updated_at'])) ?></td></tr>
+    </table>
 
-            <div class="view-actions">
-                <a href="list.php" class="back-btn">Back to List</a>
-            </div>
-        </div>
+    <div class="view-actions">
+        <a href="list.php" class="back-btn">Back to List</a>
+    </div>
+</div>
     <?php endif; ?>
 </main>
 </body>

@@ -21,14 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             INSERT INTO ppa_entries (
                 fiscal_year, quarter, title, date_duration,
                 beneficiaries_male, beneficiaries_female, beneficiaries_department,
-                location, extensionists, partner_agencies, budget_allocation, source_of_fund
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                location, extensionists, partner_agencies, frequency_monitoring, budget_allocation, source_of_fund
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $stmt->execute([
             $d['fiscal_year'], $d['quarter'], $d['title'], $d['date_duration'],
             $d['male'], $d['female'], $d['dept'] ?? null,
-            $d['location'], $d['extensionists'], $d['partners'] ?? null,
+            $d['location'], $d['extensionists'], $d['partners'] ?? null, 'frequency' => $frequency,
             $d['budget'], $d['fund_source'] ?? null
         ]);
 
@@ -47,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $location    = trim($_POST['location'] ?? '');
         $extensionists = trim($_POST['extensionists'] ?? '');
         $partners    = trim($_POST['partner_agencies'] ?? '');
+        $frequency = trim($_POST['frequency_monitoring'] ?? '');
         $budget      = (float)($_POST['budget_allocation'] ?? 0);
         $fund_source = trim($_POST['source_of_fund'] ?? '');
 
@@ -146,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p><strong>Location:</strong> <?= htmlspecialchars($d['location']) ?></p>
                 <p><strong>Extensionists:</strong> <?= htmlspecialchars($d['extensionists']) ?></p>
                 <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($d['partners'] ?: 'N/A') ?></p>
+                <p><strong>Frequency of Monitoring:</strong> <?= htmlspecialchars($d['frequency'] ?: 'N/A') ?></p>
                 <p><strong>Budget Allocation:</strong> ₱<?= number_format($d['budget'], 2) ?></p>
                 <p><strong>Source of Fund:</strong> <?= htmlspecialchars($d['fund_source'] ?: 'N/A') ?></p>
 
@@ -192,6 +194,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <label for="partner_agencies">Partner Agencies</label>
                 <input type="text" id="partner_agencies" name="partner_agencies" placeholder="e.g., LGU Lipa City, DSWD">
+
+                <label for="frequency_monitoring">Frequency of Monitoring</label>
+<select id="frequency_monitoring" name="frequency_monitoring" required>
+    <option value="">Select frequency</option>
+    <option value="Monthly">Monthly</option>
+    <option value="Quarterly">Quarterly</option>
+    <option value="Semi-annual">Semi-annual</option>
+    <option value="Annual">Annual</option>
+</select>
 
                 <label for="budget_allocation">Budget Allocation (₱)</label>
                 <input type="number" id="budget_allocation" name="budget_allocation" step="0.01" min="0" required>
