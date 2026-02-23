@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="login-container">
-        <h1>OPMM Dashboard Login</h1>
+        <h1>PPA Dashboard Login</h1>
 
         <?php if ($error): ?>
             <p class="error"><?= htmlspecialchars($error) ?></p>

@@ -53,7 +53,6 @@ try {
         </div>
         <nav class="main-nav">
             <a href="../index.php" class="nav-button">Home</a>
-            <a href="list.php" class="nav-button">PPA</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>
