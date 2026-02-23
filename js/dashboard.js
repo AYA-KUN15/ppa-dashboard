@@ -24,14 +24,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Edit icon click
     document.querySelectorAll('.edit-icon-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.getElementById('edit-id').value = btn.dataset.id;
-            document.getElementById('edit-quarter').value = btn.dataset.quarter;
-            document.getElementById('edit-fiscal').value = btn.dataset.fiscal;
-            document.getElementById('edit-modal').classList.add('active');
-            document.body.classList.add('modal-open');
-        });
+    btn.addEventListener('click', function () {
+        document.getElementById('edit-id').value = this.dataset.id;
+        document.getElementById('edit-quarter').value = this.dataset.quarter;
+        document.getElementById('edit-fiscal').value = this.dataset.fiscal;
+        document.getElementById('edit-title').value = this.dataset.title;
+        document.getElementById('edit-date-duration').value = this.dataset.dateDuration;
+        document.getElementById('edit-male').value = this.dataset.male;
+        document.getElementById('edit-female').value = this.dataset.female;
+        document.getElementById('edit-department').value = this.dataset.dept;
+        document.getElementById('edit-location').value = this.dataset.location;
+        document.getElementById('edit-extensionists').value = this.dataset.extensionists;
+        document.getElementById('edit-partners').value = this.dataset.partners;
+        document.getElementById('edit-budget').value = this.dataset.budget;
+        document.getElementById('edit-fund').value = this.dataset.fund;
+
+        openModal('edit-modal');
     });
+});
 
     // Delete icon click
     document.querySelectorAll('.delete-icon-btn').forEach(btn => {

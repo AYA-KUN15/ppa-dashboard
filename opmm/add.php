@@ -1,5 +1,5 @@
 <?php
-// opmm/add.php
+// add.php
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -10,100 +10,96 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once '../config/db.php';
 
 $error = '';
-$success = '';
+$show_confirmation = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $quarter     = $_POST['quarter'] ?? '';
-    $fiscal_year = trim($_POST['fiscal_year'] ?? '');
-    $file        = $_FILES['opmm_file'] ?? null;
+    if (isset($_POST['confirm']) && isset($_SESSION['pending_ppa'])) {
+        // Save after confirmation
+        $d = $_SESSION['pending_ppa'];
 
-    // === Validation ===
-
-    // Quarter must be one of 1st–4th
-    $valid_quarters = ['1st', '2nd', '3rd', '4th'];
-    if (!in_array($quarter, $valid_quarters)) {
-        $error = 'Please select a valid quarter.';
-    }
-
-    // Fiscal year validation (single year, not future)
-if (!preg_match('/^\d{4}$/', $fiscal_year)) {
-    $error = 'Fiscal year must be exactly 4 digits (e.g., 2026).';
-} else {
-    $year = (int)$fiscal_year;
-    $current_year = 2026;  // update this when time passes
-
-    if ($year > $current_year) {
-        $error = 'Cannot add future fiscal years beyond ' . $current_year . '.';
-    } elseif ($year === $current_year) {
-        // For 2026, only 1st quarter allowed right now (Feb)
-        if ($quarter !== '1st') {
-            $error = 'For Fiscal Year ' . $current_year . ', only 1st Quarter is allowed at this time.';
-        }
-    }
-}
-
-    // File upload validation
-    if (!$error && $file && $file['error'] === UPLOAD_ERR_OK) {
-        $allowed_types = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']; // .xlsx
-        $max_size = 10 * 1024 * 1024; // 10 MB
-
-        if (!in_array($file['type'], $allowed_types)) {
-            $error = 'Only Excel files (.xlsx) are allowed at this time.';
-        } elseif ($file['size'] > $max_size) {
-            $error = 'File is too large. Maximum 10 MB.';
-        }
-    } else if (!$error) {
-        $error = 'Please select a file to upload.';
-    }
-
-    // If no errors → show confirmation
-    if (!$error) {
-        // Store in session for confirmation step
-        $_SESSION['pending_opmm'] = [
-            'quarter'     => $quarter,
-            'fiscal_year' => $fiscal_year,
-            'file_tmp'    => $file['tmp_name'],
-            'file_name'   => $file['name'],
-            'file_size'   => $file['size'],
-            'file_type'   => $file['type']
-        ];
-
-        // Show confirmation (we'll handle save in next POST)
-        $show_confirmation = true;
-    }
-}
-
-// Handle final confirmation & save
-if (isset($_POST['confirm']) && isset($_SESSION['pending_opmm'])) {
-    $data = $_SESSION['pending_opmm'];
-
-    // Move file to permanent location
-    $upload_dir = 'D:/JUSTINE/opmm-uploads/';
-    $new_file_name = time() . '_' . basename($data['file_name']);
-    $destination = $upload_dir . $new_file_name;
-
-    if (move_uploaded_file($data['file_tmp'], $destination)) {
-        // Save to database
         $stmt = $pdo->prepare("
-            INSERT INTO opmm_entries 
-            (fiscal_year, quarter, file_name, file_path, file_size, uploaded_by)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO ppa_entries (
+                fiscal_year, quarter, title, date_duration,
+                beneficiaries_male, beneficiaries_female, beneficiaries_department,
+                location, extensionists, partner_agencies, budget_allocation, source_of_fund
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
+
         $stmt->execute([
-            $data['fiscal_year'],
-            $data['quarter'],
-            $data['file_name'],
-            $destination,
-            $data['file_size'],
-            $_SESSION['user_id'] ?? null
+            $d['fiscal_year'], $d['quarter'], $d['title'], $d['date_duration'],
+            $d['male'], $d['female'], $d['dept'] ?? null,
+            $d['location'], $d['extensionists'], $d['partners'] ?? null,
+            $d['budget'], $d['fund_source'] ?? null
         ]);
 
-        unset($_SESSION['pending_opmm']);
-        $success = 'OPMM added successfully!';
-        header("Location: list.php");
+        unset($_SESSION['pending_ppa']);
+        header("Location: list.php?success=1");
         exit;
     } else {
-        $error = 'Failed to save the file.';
+        // First submission - validate & collect
+        $quarter     = $_POST['quarter'] ?? '';
+        $fiscal_year = trim($_POST['fiscal_year'] ?? '');
+        $title       = trim($_POST['title'] ?? '');
+        $date_duration = trim($_POST['date_duration'] ?? '');
+        $male        = (int)($_POST['beneficiaries_male'] ?? 0);
+        $female      = (int)($_POST['beneficiaries_female'] ?? 0);
+        $dept        = trim($_POST['beneficiaries_department'] ?? '');
+        $location    = trim($_POST['location'] ?? '');
+        $extensionists = trim($_POST['extensionists'] ?? '');
+        $partners    = trim($_POST['partner_agencies'] ?? '');
+        $budget      = (float)($_POST['budget_allocation'] ?? 0);
+        $fund_source = trim($_POST['source_of_fund'] ?? '');
+
+        // Validation
+        $valid_quarters = ['1st', '2nd', '3rd', '4th'];
+        if (!in_array($quarter, $valid_quarters)) {
+            $error = 'Please select a valid quarter.';
+        } elseif (!preg_match('/^\d{4}$/', $fiscal_year)) {
+            $error = 'Fiscal year must be exactly 4 digits (e.g., 2025).';
+        } else {
+            $year = (int)$fiscal_year;
+            $current_year = 2026;
+
+            if ($year > $current_year) {
+                $error = 'Cannot add future fiscal years beyond ' . $current_year . '.';
+            } elseif ($year < 2021) {
+                $error = 'Fiscal year cannot be earlier than 2021.';
+            } elseif ($year === $current_year) {
+                if ($quarter !== '1st') {
+                    $error = 'For Fiscal Year ' . $current_year . ', only 1st Quarter is allowed at this time.';
+                }
+            }
+        }
+
+        if (empty($title)) {
+            $error = 'Title of Project/Program/Activity is required.';
+        } elseif (empty($date_duration)) {
+            $error = 'Date / Duration is required.';
+        } elseif (empty($location)) {
+            $error = 'Location is required.';
+        } elseif (empty($extensionists)) {
+            $error = 'Extensionists is required.';
+        } elseif ($budget < 0) {
+            $error = 'Budget Allocation cannot be negative.';
+        }
+
+        if (!$error) {
+            $_SESSION['pending_ppa'] = [
+                'quarter'     => $quarter,
+                'fiscal_year' => $fiscal_year,
+                'title'       => $title,
+                'date_duration' => $date_duration,
+                'male'        => $male,
+                'female'      => $female,
+                'dept'        => $dept,
+                'location'    => $location,
+                'extensionists' => $extensionists,
+                'partners'    => $partners,
+                'budget'      => $budget,
+                'fund_source' => $fund_source
+            ];
+            $show_confirmation = true;
+        }
     }
 }
 ?>
@@ -113,7 +109,7 @@ if (isset($_POST['confirm']) && isset($_SESSION['pending_opmm'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add New OPMM</title>
+    <title>Add New PPA</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -121,34 +117,37 @@ if (isset($_POST['confirm']) && isset($_SESSION['pending_opmm'])) {
 
     <header class="top-bar">
         <div class="logo-container">
-            <img src="../assets/bsu-logo.jpg" alt="BatStateU Logo" class="logo">
-            <span class="logo-text">OPMM Dashboard</span>
+            <img src="../assets/bsu-logo.jpg" alt="BSU Logo" class="logo">
+            <span class="logo-text">PPA Dashboard</span>
         </div>
         <nav class="main-nav">
-            <a href="../index.php" class="nav-button">Home</a>
-            <a href="list.php" class="nav-button">OPMM</a>
+            <a href="list.php" class="nav-button">Home</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>
 
     <main class="dashboard-content">
-        <h1>Add New OPMM</h1>
+        <h1>Add New PPA</h1>
 
         <?php if ($error): ?>
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php endif; ?>
 
-        <?php if (isset($success)): ?>
-            <p class="success"><?= htmlspecialchars($success) ?></p>
-        <?php endif; ?>
-
-        <?php if (isset($show_confirmation)): $d = $_SESSION['pending_opmm']; ?>
+        <?php if ($show_confirmation): $d = $_SESSION['pending_ppa']; ?>
             <div class="confirmation-box">
-                <h2>Confirm OPMM Details</h2>
-                <p><strong>Quarter:</strong> <?= htmlspecialchars($d['quarter']) ?></p>
+                <h2>Review PPA Details</h2>
                 <p><strong>Fiscal Year:</strong> <?= htmlspecialchars($d['fiscal_year']) ?></p>
-                <p><strong>File:</strong> <?= htmlspecialchars($d['file_name']) ?></p>
-                <p><strong>Size:</strong> <?= number_format($d['file_size'] / 1024, 2) ?> KB</p>
+                <p><strong>Quarter:</strong> <?= htmlspecialchars($d['quarter']) ?></p>
+                <p><strong>Title:</strong> <?= htmlspecialchars($d['title']) ?></p>
+                <p><strong>Date / Duration:</strong> <?= htmlspecialchars($d['date_duration']) ?></p>
+                <p><strong>Beneficiaries (Male):</strong> <?= htmlspecialchars($d['male']) ?></p>
+                <p><strong>Beneficiaries (Female):</strong> <?= htmlspecialchars($d['female']) ?></p>
+                <p><strong>Beneficiary Department:</strong> <?= htmlspecialchars($d['dept'] ?: 'N/A') ?></p>
+                <p><strong>Location:</strong> <?= htmlspecialchars($d['location']) ?></p>
+                <p><strong>Extensionists:</strong> <?= htmlspecialchars($d['extensionists']) ?></p>
+                <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($d['partners'] ?: 'N/A') ?></p>
+                <p><strong>Budget Allocation:</strong> ₱<?= number_format($d['budget'], 2) ?></p>
+                <p><strong>Source of Fund:</strong> <?= htmlspecialchars($d['fund_source'] ?: 'N/A') ?></p>
 
                 <form method="POST">
                     <button type="submit" name="confirm">Confirm & Save</button>
@@ -156,7 +155,7 @@ if (isset($_POST['confirm']) && isset($_SESSION['pending_opmm'])) {
                 </form>
             </div>
         <?php else: ?>
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST">
                 <label for="quarter">Quarter</label>
                 <select id="quarter" name="quarter" required>
                     <option value="">Select quarter</option>
@@ -168,10 +167,37 @@ if (isset($_POST['confirm']) && isset($_SESSION['pending_opmm'])) {
 
                 <label for="fiscal_year">Fiscal Year (YYYY)</label>
                 <input type="text" id="fiscal_year" name="fiscal_year" 
-                    placeholder="e.g., 2026" required pattern="\d{4}" maxlength="4" minlength="4">
+                       placeholder="e.g., 2025" required pattern="\d{4}" maxlength="4">
 
-                <label for="opmm_file">Upload File (.xlsx only)</label>
-                <input type="file" id="opmm_file" name="opmm_file" accept=".xlsx" required>
+                <label for="title">Title of Project/Program/Activity</label>
+                <input type="text" id="title" name="title" required>
+
+                <label for="date_duration">Date / Duration</label>
+                <input type="text" id="date_duration" name="date_duration" required placeholder="e.g., July 6, 2025 / 8 hrs">
+
+                <label for="beneficiaries_male">No. of Beneficiaries (Male)</label>
+                <input type="number" id="beneficiaries_male" name="beneficiaries_male" min="0" required>
+
+                <label for="beneficiaries_female">No. of Beneficiaries (Female)</label>
+                <input type="number" id="beneficiaries_female" name="beneficiaries_female" min="0" required>
+
+                <label for="beneficiaries_department">Beneficiary Department / Program</label>
+                <input type="text" id="beneficiaries_department" name="beneficiaries_department">
+
+                <label for="location">Location</label>
+                <input type="text" id="location" name="location" required>
+
+                <label for="extensionists">Extensionists</label>
+                <input type="text" id="extensionists" name="extensionists" required>
+
+                <label for="partner_agencies">Partner Agencies</label>
+                <input type="text" id="partner_agencies" name="partner_agencies" placeholder="e.g., LGU Lipa City, DSWD">
+
+                <label for="budget_allocation">Budget Allocation (₱)</label>
+                <input type="number" id="budget_allocation" name="budget_allocation" step="0.01" min="0" required>
+
+                <label for="source_of_fund">Source of Fund</label>
+                <input type="text" id="source_of_fund" name="source_of_fund">
 
                 <button type="submit">Review & Add</button>
             </form>
