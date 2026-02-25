@@ -1,5 +1,5 @@
 <?php
-// list.php
+// list.php - Program List
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -11,18 +11,16 @@ require_once '../config/db.php';
 
 try {
     $stmt = $pdo->query("
-        SELECT id, fiscal_year, quarter, title, date_duration,
-               beneficiaries_male, beneficiaries_female, beneficiaries_department,
-               location, extensionists, partner_agencies, budget_allocation, source_of_fund,
-               frequency_monitoring, created_at
-        FROM ppa_entries
+        SELECT id, title, location, duration_start, duration_end,
+               type_of_extension_service_agenda, sdg_goals, year_of_implementation
+        FROM program_entries
         WHERE status = 'active'
-        ORDER BY created_at DESC
+        ORDER BY year_of_implementation DESC, title ASC
     ");
-    $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
-    $entries = [];
+    $programs = [];
 }
 ?>
 
@@ -31,7 +29,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PPA Dashboard</title>
+    <title>PPA Dashboard - Programs</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -54,52 +52,38 @@ try {
         <div class="filter-actions">
             <button class="filter-button" onclick="openModal('filter-modal')">Filter</button>
             <div class="action-buttons">
-                <a href="add.php" class="action-btn add">Add New PPA</a>
+                <a href="add.php?mode=program" class="action-btn add">Add New Program</a>
             </div>
         </div>
 
         <div class="quarter-scroll-container">
-            <div class="quarter-buttons edit-mode-container" id="ppa-list">
+            <div class="quarter-buttons">
                 <?php if (!empty($error)): ?>
                     <p class="error"><?= htmlspecialchars($error) ?></p>
-                <?php elseif (empty($entries)): ?>
-                    <p>No PPA entries found yet.</p>
+                <?php elseif (empty($programs)): ?>
+                    <p>No programs found yet.</p>
                 <?php else: ?>
-                    <?php foreach ($entries as $entry): ?>
-                        <div class="quarter-item"
-                             data-frequency="<?= htmlspecialchars($entry['frequency_monitoring'] ?? '') ?>">
+                    <?php foreach ($programs as $program): ?>
+                        <div class="quarter-item">
                             <button class="quarter-btn" 
-                                    onclick="window.location.href='view.php?id=<?= $entry['id'] ?>'"
-                                    title="<?= htmlspecialchars($entry['title']) ?>">
-                                <span class="quarter-btn-title"><?= htmlspecialchars($entry['title']) ?></span>
+                                    onclick="window.location.href='view.php?mode=program&id=<?= $program['id'] ?>'">
+                                <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
-                                    <?= htmlspecialchars($entry['quarter']) ?> Quarter, FY <?= htmlspecialchars($entry['fiscal_year']) ?>
-                                    <?= $entry['frequency_monitoring'] ? ' · ' . htmlspecialchars($entry['frequency_monitoring']) : '' ?>
+                                    <?= htmlspecialchars($program['type_of_extension_service_agenda']) ?> · 
+                                    FY <?= htmlspecialchars($program['year_of_implementation']) ?>
                                 </span>
                             </button>
 
                             <button class="action-icon edit-icon-btn" 
-                                    data-id="<?= $entry['id'] ?>"
-                                    data-quarter="<?= htmlspecialchars($entry['quarter']) ?>"
-                                    data-fiscal="<?= htmlspecialchars($entry['fiscal_year']) ?>"
-                                    data-title="<?= htmlspecialchars($entry['title'] ?? '') ?>"
-                                    data-date-duration="<?= htmlspecialchars($entry['date_duration'] ?? '') ?>"
-                                    data-male="<?= $entry['beneficiaries_male'] ?? 0 ?>"
-                                    data-female="<?= $entry['beneficiaries_female'] ?? 0 ?>"
-                                    data-dept="<?= htmlspecialchars($entry['beneficiaries_department'] ?? '') ?>"
-                                    data-location="<?= htmlspecialchars($entry['location'] ?? '') ?>"
-                                    data-extensionists="<?= htmlspecialchars($entry['extensionists'] ?? '') ?>"
-                                    data-partners="<?= htmlspecialchars($entry['partner_agencies'] ?? '') ?>"
-                                    data-budget="<?= $entry['budget_allocation'] ?? 0 ?>"
-                                    data-fund="<?= htmlspecialchars($entry['source_of_fund'] ?? '') ?>"
-                                    data-frequency="<?= htmlspecialchars($entry['frequency_monitoring'] ?? '') ?>"
-                                    title="Edit entry">
+                                    onclick="window.location.href='edit.php?mode=program&id=<?= $program['id'] ?>'"
+                                    title="Edit program">
                                 <span class="material-icons">edit</span>
                             </button>
 
                             <button class="action-icon delete-icon-btn" 
-                                    data-id="<?= $entry['id'] ?>"
-                                    title="Delete entry">
+                                    data-id="<?= $program['id'] ?>"
+                                    data-mode="program"
+                                    title="Delete program">
                                 <span class="material-icons">delete</span>
                             </button>
                         </div>
@@ -109,7 +93,7 @@ try {
         </div>
 
         <div class="content-placeholder">
-            <p>Select a PPA entry to view details.</p>
+            <p>Select a program to view its projects.</p>
         </div>
     </main>
 
@@ -117,16 +101,54 @@ try {
     <div id="filter-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('filter-modal')">×</span>
-            <h2>Filter PPA Entries</h2>
+            <h2>Filter Programs</h2>
 
             <form id="filter-form">
-                <label for="filter-frequency">Frequency of Monitoring</label>
-                <select id="filter-frequency" name="frequency">
-                    <option value="">All Frequencies</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Semi-annual">Semi-annual</option>
-                    <option value="Annual">Annual</option>
+                <label for="filter-type">Type of Extension Service Agenda</label>
+                <select id="filter-type" name="type">
+                    <option value="">All Types</option>
+                    <option value="BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program">BISIG Program</option>
+                    <option value="Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)">LEAF</option>
+                    <option value="Environment and Natural resources Conservation, Protection and Rehabilitation Program">Environment and Natural resources Program</option>
+                    <option value="Smart Analytics and Engineering Innovation">Smart Analytics and Engineering Innovation</option>
+                    <option value="Adopt-a Municipality/Barangay/School/Social Development Thru BIDANI Implementation">Adopt-a Municipality/Barangay/School</option>
+                    <option value="Community Outreach">Community Outreach</option>
+                    <option value="Technical-Vocational Education and Training (TVET) Program">TVET Program</option>
+                    <option value="Technology Transfer and Adoption/Utilization Program">Technology Transfer and Adoption Program</option>
+                    <option value="Technical Assistance and Advisory Services Program">Technical Assistance and Advisory Services Program</option>
+                    <option value="Parents' Empowerment through Social Development (PESODEV)">PESODEV</option>
+                    <option value="Gender and Development">Gender and Development</option>
+                    <option value="Disaster Risk Reduction and Management and Disaster Preparedness and Response/Climate Change Adaptation (DRMM and DPR/CCA)">DRMM and DPR/CCA</option>
+                </select>
+
+                <label for="filter-sdg">Sustainable Development Goals</label>
+                <select id="filter-sdg" name="sdg">
+                    <option value="">All SDGs</option>
+                    <option value="No Poverty">No Poverty</option>
+                    <option value="Zero Hunger">Zero Hunger</option>
+                    <option value="Good Health and Well-Being">Good Health and Well-Being</option>
+                    <option value="Quality Education">Quality Education</option>
+                    <option value="Gender Equality">Gender Equality</option>
+                    <option value="Clean Water and Sanitation">Clean Water and Sanitation</option>
+                    <option value="Affordable and Clean Energy">Affordable and Clean Energy</option>
+                    <option value="Decent Work and Economic Growth">Decent Work and Economic Growth</option>
+                    <option value="Industry, Innovation, and Infrastructure">Industry, Innovation, and Infrastructure</option>
+                    <option value="Reduced Inequalities">Reduced Inequalities</option>
+                    <option value="Sustainable Cities and Communities">Sustainable Cities and Communities</option>
+                    <option value="Responsible Consumption and Production">Responsible Consumption and Production</option>
+                    <option value="Climate Action">Climate Action</option>
+                    <option value="Life Below Water">Life Below Water</option>
+                    <option value="Life on Land">Life on Land</option>
+                    <option value="Peace, Justice and Strong Institutions">Peace, Justice and Strong Institutions</option>
+                    <option value="Partnerships for the Goals">Partnerships for the Goals</option>
+                </select>
+
+                <label for="filter-year">Year of Implementation</label>
+                <select id="filter-year" name="year">
+                    <option value="">All Years</option>
+                    <?php for ($y = date('Y'); $y >= 2021; $y--): ?>
+                        <option value="<?= $y ?>"><?= $y ?></option>
+                    <?php endfor; ?>
                 </select>
 
                 <div class="modal-actions">
@@ -138,81 +160,16 @@ try {
         </div>
     </div>
 
-    <!-- Edit Modal -->
-    <div id="edit-modal" class="modal-overlay">
-        <div class="modal-box">
-            <span class="close-modal" onclick="closeModal('edit-modal')">×</span>
-            <h2>Edit PPA Entry</h2>
-            <form id="edit-form" method="POST" action="edit.php">
-                <input type="hidden" name="id" id="edit-id">
-
-                <label for="edit-quarter">Quarter</label>
-                <select name="quarter" id="edit-quarter" required>
-                    <option value="1st">1st Quarter</option>
-                    <option value="2nd">2nd Quarter</option>
-                    <option value="3rd">3rd Quarter</option>
-                    <option value="4th">4th Quarter</option>
-                </select>
-
-                <label for="edit-fiscal">Fiscal Year (YYYY)</label>
-                <input type="text" name="fiscal_year" id="edit-fiscal" required pattern="\d{4}" maxlength="4">
-
-                <label for="edit-title">Title of Project/Program/Activity</label>
-                <input type="text" name="title" id="edit-title" required>
-
-                <label for="edit-date-duration">Date / Duration</label>
-                <input type="text" name="date_duration" id="edit-date-duration" required placeholder="e.g., July 6, 2025 / 8 hrs">
-
-                <label for="edit-male">No. of Beneficiaries (Male)</label>
-                <input type="number" name="beneficiaries_male" id="edit-male" min="0" required>
-
-                <label for="edit-female">No. of Beneficiaries (Female)</label>
-                <input type="number" name="beneficiaries_female" id="edit-female" min="0" required>
-
-                <label for="edit-department">Beneficiary Department / Program</label>
-                <input type="text" name="beneficiaries_department" id="edit-department">
-
-                <label for="edit-location">Location</label>
-                <input type="text" name="location" id="edit-location" required>
-
-                <label for="edit-extensionists">Extensionists</label>
-                <input type="text" name="extensionists" id="edit-extensionists" required>
-
-                <label for="edit-partners">Partner Agencies</label>
-                <input type="text" name="partner_agencies" id="edit-partners" placeholder="e.g., LGU Lipa City, DSWD">
-
-                <label for="edit-frequency">Frequency of Monitoring</label>
-                <select name="frequency_monitoring" id="edit-frequency" required>
-                    <option value="">Select frequency</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Semi-annual">Semi-annual</option>
-                    <option value="Annual">Annual</option>
-                </select>
-
-                <label for="edit-budget">Budget Allocation (₱)</label>
-                <input type="number" name="budget_allocation" id="edit-budget" step="0.01" min="0" required>
-
-                <label for="edit-fund">Source of Fund</label>
-                <input type="text" name="source_of_fund" id="edit-fund">
-
-                <div class="modal-actions">
-                    <button type="submit">Save Changes</button>
-                    <button type="button" onclick="closeModal('edit-modal')">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- Delete Confirmation Modal -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('delete-modal')">×</span>
             <h2>Confirm Delete</h2>
-            <p>Are you sure you want to delete this PPA entry?</p>
+            <p>Are you sure you want to delete this entry?</p>
             <p>This action cannot be undone.</p>
             <form id="delete-form" method="POST" action="delete.php">
                 <input type="hidden" name="id" id="delete-id">
+                <input type="hidden" name="mode" id="delete-mode">
                 <div class="modal-actions">
                     <button type="submit">Yes, Delete</button>
                     <button type="button" onclick="closeModal('delete-modal')">Cancel</button>
@@ -224,68 +181,25 @@ try {
     <script src="../js/dashboard.js"></script>
     <script>
 function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    modal.classList.add('active');
+    document.getElementById(modalId).classList.add('active');
     document.body.classList.add('modal-open');
 }
 
 function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    modal.classList.remove('active');
+    document.getElementById(modalId).classList.remove('active');
     document.body.classList.remove('modal-open');
 }
 
-function toggleFiscalDropdown() {
-    const dropdown = document.getElementById('fiscal-dropdown');
-    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-}
-
-function filterByYear(year) {
-    const items = document.querySelectorAll('.quarter-item');
-    items.forEach(item => {
-        const btn = item.querySelector('.quarter-btn');
-        if (!btn) {
-            item.style.display = 'none';
-            return;
-        }
-
-        const text = btn.textContent.trim();
-        const match = text.match(/(\d{4})(?:-(\d{4}))?$/i);
-        let displayedYear = '';
-        if (match) {
-            displayedYear = match[2] || match[1];
-        }
-
-        const shouldShow = !year || displayedYear === year;
-        item.style.display = shouldShow ? 'flex' : 'none';
-    });
-
-    document.getElementById('fiscal-dropdown').style.display = 'none';
-}
-
-// Edit modal population
-document.querySelectorAll('.edit-icon-btn').forEach(btn => {
+// Delete modal trigger
+document.querySelectorAll('.delete-icon-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-        document.getElementById('edit-id').value = this.dataset.id;
-        document.getElementById('edit-quarter').value = this.dataset.quarter;
-        document.getElementById('edit-fiscal').value = this.dataset.fiscal;
-        document.getElementById('edit-title').value = this.dataset.title;
-        document.getElementById('edit-date-duration').value = this.dataset.dateDuration;
-        document.getElementById('edit-male').value = this.dataset.male;
-        document.getElementById('edit-female').value = this.dataset.female;
-        document.getElementById('edit-department').value = this.dataset.dept;
-        document.getElementById('edit-location').value = this.dataset.location;
-        document.getElementById('edit-extensionists').value = this.dataset.extensionists;
-        document.getElementById('edit-partners').value = this.dataset.partners;
-        document.getElementById('edit-budget').value = this.dataset.budget;
-        document.getElementById('edit-fund').value = this.dataset.fund;
-        document.getElementById('edit-frequency').value = this.dataset.frequency;
-
-        openModal('edit-modal');
+        document.getElementById('delete-id').value = this.dataset.id;
+        document.getElementById('delete-mode').value = this.dataset.mode;
+        openModal('delete-modal');
     });
 });
 
-// Close when clicking outside modal
+// Close modal on outside click
 window.onclick = function(event) {
     if (event.target.classList.contains('modal-overlay')) {
         closeModal(event.target.id);

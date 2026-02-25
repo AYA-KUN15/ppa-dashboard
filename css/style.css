@@ -574,6 +574,23 @@ button:hover {
     overflow-y: auto;
 }
 
+.modal-box label {
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.modal-box label:hover {
+    background: #f0f0f0;
+}
+
+.modal-box input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #c8102e; /* your theme color */
+    cursor: pointer;
+}
+
 /* Close button */
 .close-modal {
     position: absolute;
