@@ -68,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $location = trim($_POST['location'] ?? '');
             $duration_start = $_POST['duration_start'] ?? '';
             $duration_end = $_POST['duration_end'] ?? '';
-            $type = implode(', ', $_POST['type_of_extension_service_agenda'] ?? []);
-            $sdg = implode(', ', $_POST['sdg_goals'] ?? []);
+            $type = trim($_POST['type_of_extension_service_agenda'] ?? '');
+            $sdg = trim($_POST['sdg_goals'] ?? '');
             $offices = trim($_POST['offices_involved'] ?? '');
             $programs = trim($_POST['programs_involved'] ?? '');
             $partners = trim($_POST['partner_agencies'] ?? '');

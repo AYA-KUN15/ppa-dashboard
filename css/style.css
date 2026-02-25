@@ -419,32 +419,27 @@ button:hover {
     transform: scale(1.15);
 }
 
-.delete-icon {
-    display: none;
-    font-size: 1.3rem;
-    color: #dc2626;
-    margin-left: auto;
-    opacity: 0.7;
-    transition: all 0.2s;
+.action-icon.complete-icon-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: color 0.2s;
 }
 
-.delete-icon-btn {
-    color: #dc2626;
+.action-icon.complete-icon-btn .material-icons {
+    color: #757575;           /* gray default */
+    font-size: 24px;          /* match pencil size */
 }
 
-.delete-icon-btn:hover {
-    background: #fee2e2;
-    color: #b91c1c;
+.action-icon.complete-icon-btn:hover .material-icons {
+    color: #c8102e;           /* red on hover */
 }
 
-.delete-mode-active .delete-icon {
-    display: inline-block;
-}
-
-.delete-mode-active .quarter-btn:hover .delete-icon {
-    color: #b91c1c;
-    opacity: 1;
-    transform: scale(1.15);
+/* Optional: subtle scale on hover like pencil */
+.action-icon.complete-icon-btn:hover {
+    transform: scale(1.1);
 }
 
 /* Show only in respective modes */
@@ -614,10 +609,26 @@ button:hover {
 }
 
 .modal-actions button {
-    padding: 12px 24px;
-    font-size: 1rem;
+    flex: 1;
+    max-width: 140px;
+    padding: 12px 20px;
+    border: none;
     border-radius: 6px;
     cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    height: 48px;
+    line-height: 1;
+    box-sizing: border-box;
+    color: white;
+}
+
+.modal-actions button[type="submit"] {
+    background: #c8102e;
+}
+
+.modal-actions button:not([type="submit"]) {
+    background: #757575;
 }
 
 .danger-btn {

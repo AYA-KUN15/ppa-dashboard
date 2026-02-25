@@ -9,29 +9,42 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once '../config/db.php';
 
+$mode = $_GET['mode'] ?? '';
 $id = $_GET['id'] ?? null;
 
-if (!$id || !is_numeric($id)) {
+if ($mode !== 'program' || !$id || !is_numeric($id)) {
     header("Location: list.php");
     exit;
 }
 
 try {
     $stmt = $pdo->prepare("
-        SELECT * FROM ppa_entries 
+        SELECT title, location, duration_start, duration_end,
+               type_of_extension_service_agenda, sdg_goals, offices_involved,
+               programs_involved, partner_agencies, beneficiaries_json,
+               total_cost, source_of_fund
+        FROM program_entries
         WHERE id = ? AND status = 'active'
     ");
     $stmt->execute([$id]);
-    $entry = $stmt->fetch(PDO::FETCH_ASSOC);
+    $program = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$entry) {
+    if (!$program) {
         header("Location: list.php");
         exit;
     }
+
+    // Get projects under this program
+    $stmt = $pdo->prepare("
+        SELECT id, project_title, activities, month_of_implementation
+        FROM project_entries
+        WHERE program_id = ? AND status = 'active'
+        ORDER BY month_of_implementation ASC
+    ");
+    $stmt->execute([$id]);
+    $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // Handle error gracefully
     $error = "Database error: " . $e->getMessage();
-    $entry = null;
 }
 ?>
 
@@ -40,7 +53,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PPA Dashboard - View Entry</title>
+    <title>View Program - <?= htmlspecialchars($program['title'] ?? 'Program') ?></title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -53,38 +66,64 @@ try {
         </div>
         <nav class="main-nav">
             <a href="../index.php" class="nav-button">Home</a>
+            <a href="list.php" class="nav-button">PPA</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>
 
     <main class="dashboard-content">
-    <h1>View PPA Entry</h1>
+        <?php if (isset($error)): ?>
+            <p class="error"><?= htmlspecialchars($error) ?></p>
+        <?php else: ?>
+            <h1><?= htmlspecialchars($program['title']) ?></h1>
 
-    <?php if ($entry): ?>
-        <div class="view-table">
-    <table>
-        <tr><th>Fiscal Year</th><td><?= htmlspecialchars($entry['fiscal_year']) ?></td></tr>
-        <tr><th>Quarter</th><td><?= htmlspecialchars($entry['quarter']) ?></td></tr>
-        <tr><th>Title</th><td><?= htmlspecialchars($entry['title']) ?></td></tr>
-        <tr><th>Date / Duration</th><td><?= htmlspecialchars($entry['date_duration']) ?></td></tr>
-        <tr><th>Beneficiaries (Male)</th><td><?= htmlspecialchars($entry['beneficiaries_male']) ?></td></tr>
-        <tr><th>Beneficiaries (Female)</th><td><?= htmlspecialchars($entry['beneficiaries_female']) ?></td></tr>
-        <tr><th>Beneficiary Department</th><td><?= htmlspecialchars($entry['beneficiaries_department'] ?: 'N/A') ?></td></tr>
-        <tr><th>Location</th><td><?= htmlspecialchars($entry['location']) ?></td></tr>
-        <tr><th>Extensionists</th><td><?= htmlspecialchars($entry['extensionists']) ?></td></tr>
-        <tr><th>Partner Agencies</th><td><?= htmlspecialchars($entry['partner_agencies'] ?: 'N/A') ?></td></tr>
-        <tr><th>Frequency of Monitoring</th><td><?= htmlspecialchars($entry['frequency_monitoring'] ?: 'N/A') ?></td></tr>
-        <tr><th>Budget Allocation</th><td>₱<?= number_format($entry['budget_allocation'], 2) ?></td></tr>
-        <tr><th>Source of Fund</th><td><?= htmlspecialchars($entry['source_of_fund'] ?: 'N/A') ?></td></tr>
-        <tr><th>Created</th><td><?= date('M d, Y h:i A', strtotime($entry['created_at'])) ?></td></tr>
-        <tr><th>Last Updated</th><td><?= date('M d, Y h:i A', strtotime($entry['updated_at'])) ?></td></tr>
-    </table>
+            <div class="program-details">
+                <p><strong>Location:</strong> <?= htmlspecialchars($program['location']) ?></p>
+                <p><strong>Duration:</strong> 
+                    <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_start']))) ?> – 
+                    <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_end']))) ?>
+                </p>
+                <p><strong>Type:</strong> <?= htmlspecialchars($program['type_of_extension_service_agenda']) ?></p>
+                <p><strong>SDG Goals:</strong> <?= htmlspecialchars($program['sdg_goals']) ?></p>
+                <p><strong>Offices Involved:</strong> <?= htmlspecialchars($program['offices_involved']) ?></p>
+                <p><strong>Programs Involved:</strong> <?= htmlspecialchars($program['programs_involved']) ?></p>
+                <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($program['partner_agencies'] ?: 'None') ?></p>
+                <p><strong>Beneficiaries:</strong> <span id="view-beneficiaries"></span></p>
+                <p><strong>Total Cost:</strong> ₱<?= number_format($program['total_cost'], 2) ?></p>
+                <p><strong>Source of Fund:</strong> <?= htmlspecialchars($program['source_of_fund'] ?: 'N/A') ?></p>
+            </div>
 
-    <div class="view-actions">
-        <a href="list.php" class="back-btn">Back to List</a>
-    </div>
-</div>
-    <?php endif; ?>
-</main>
+            <div style="margin-top: 32px;">
+                <h2>Projects under this Program</h2>
+                <?php if (empty($projects)): ?>
+                    <p>No projects added yet.</p>
+                <?php else: ?>
+                    <ul>
+                        <?php foreach ($projects as $project): ?>
+                            <li>
+                                <strong><?= htmlspecialchars($project['project_title']) ?></strong><br>
+                                <?= htmlspecialchars($project['activities']) ?> 
+                                (<?= htmlspecialchars($project['month_of_implementation']) ?>)
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <a href="add.php?mode=project&program_id=<?= $id ?>" class="action-btn add" style="margin-top: 16px;">Add New Project</a>
+            </div>
+        <?php endif; ?>
+    </main>
+
+    <script>
+    // Show beneficiaries summary
+    const beneficiariesJson = <?= json_encode($program['beneficiaries_json'] ?? '[]') ?>;
+    let summary = '';
+    let total = 0;
+    beneficiariesJson.forEach(b => {
+        summary += `${b.type}: ${b.male} male, ${b.female} female | `;
+        total += b.male + b.female;
+    });
+    summary += `Total: ${total}`;
+    document.getElementById('view-beneficiaries').textContent = summary || 'None added';
+    </script>
 </body>
 </html>

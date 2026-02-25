@@ -235,10 +235,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                     <input type="text" id="month_of_implementation" name="month_of_implementation" value="<?= htmlspecialchars($entry['month_of_implementation']) ?>" required>
                 <?php endif; ?>
 
-                <div class="modal-actions">
-                    <button type="submit">Save Changes</button>
-                    <a href="list.php" class="cancel-link">Cancel</a>
-                </div>
+                <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+    <button type="submit" 
+            style="padding: 12px 24px; background: #c8102e; color: white; border: none; border-radius: 6px; 
+                   cursor: pointer; font-size: 16px; font-weight: 500; height: 48px; line-height: 1; min-width: 140px;">
+        Save Changes
+    </button>
+</div>
             </form>
         <?php endif; ?>
     </main>
@@ -447,25 +450,53 @@ function addBeneficiaryRow(type = '', male = 0, female = 0) {
     const row = document.createElement('div');
     row.className = 'beneficiary-row';
     row.style.display = 'flex';
+    row.style.alignItems = 'center';
     row.style.gap = '12px';
     row.style.marginBottom = '16px';
-    row.style.alignItems = 'center';
+    row.style.flexWrap = 'wrap'; // good for small screens
+
     row.innerHTML = `
-        <input type="text" placeholder="Beneficiary Type (e.g., Farmers, Students, PWDs)" 
-               value="${type}" 
-               style="flex: 3; font-size: 18px; padding: 14px 18px; height: 52px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;"
-               required>
-        <input type="number" placeholder="Male" value="${male}" min="0" 
-               style="flex: 1.2; font-size: 18px; padding: 14px; height: 52px; text-align: center; border: 1px solid #ccc; border-radius: 6px;"
-               required>
-        <input type="number" placeholder="Female" value="${female}" min="0" 
-               style="flex: 1.2; font-size: 18px; padding: 14px; height: 52px; text-align: center; border: 1px solid #ccc; border-radius: 6px;"
-               required>
-        <button type="button" onclick="this.parentElement.remove()" 
-                style="padding: 10px 14px; background: #c8102e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; min-width: 60px; line-height: 1;">
-            × Remove
+        <div style="flex: 2; min-width: 220px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 14px; font-weight: 500; color: #444;">Beneficiary Type</label>
+            <input type="text" 
+                   placeholder="e.g., Farmers, Students, PWDs, Senior Citizens" 
+                   value="${type}" 
+                   required
+                   style="width: 100%; font-size: 16px; padding: 10px 14px; height: 44px; 
+                          border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+        </div>
+
+        <div style="flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 14px; font-weight: 500; color: #444;">Male</label>
+            <input type="number" 
+                   placeholder="0" 
+                   value="${male}" 
+                   min="0" 
+                   required
+                   style="width: 100%; font-size: 16px; padding: 10px; height: 44px; 
+                          text-align: center; border: 1px solid #ccc; border-radius: 6px;">
+        </div>
+
+        <div style="flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 14px; font-weight: 500; color: #444;">Female</label>
+            <input type="number" 
+                   placeholder="0" 
+                   value="${female}" 
+                   min="0" 
+                   required
+                   style="width: 100%; font-size: 16px; padding: 10px; height: 44px; 
+                          text-align: center; border: 1px solid #ccc; border-radius: 6px;">
+        </div>
+
+        <button type="button" 
+                onclick="this.closest('.beneficiary-row').remove();"
+                style="padding: 10px 16px; background: #c8102e; color: white; 
+                       border: none; border-radius: 6px; cursor: pointer; font-size: 14px; 
+                       white-space: nowrap; align-self: flex-end; margin-top: 20px;">
+            Remove
         </button>
     `;
+
     container.appendChild(row);
 }
 
