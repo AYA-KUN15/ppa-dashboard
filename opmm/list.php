@@ -87,10 +87,12 @@ try {
     <main class="dashboard-content">
         <div class="filter-actions">
     <button class="filter-button" onclick="openModal('filter-modal')">Filter</button>
-    <div class="action-buttons">
-        <a href="add.php?mode=program" class="action-btn add">Add New Program</a>
-        <a href="archive.php" class="action-btn archive">View Completed Programs</a>
-    </div>
+    <div class="action-buttons" style="display: flex; gap: 12px; justify-content: flex-end; align-items: center;">
+    <a href="add.php?mode=program" class="action-btn add">Add New Program</a>
+    <a href="archive.php" class="action-btn archive" style="text-decoration: none !important; min-width: 140px; text-align: center;">
+        M&E Phase
+    </a>
+</div>
 </div>
 
         <div class="quarter-scroll-container">
@@ -249,7 +251,7 @@ window.onclick = function(event) {
 
 document.querySelectorAll('.complete-icon-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-        if (confirm("Mark this program as completed? It will no longer appear in active list.")) {
+        if (confirm("Mark this program as completed? It will no longer appear in the active list.")) {
             fetch('complete.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -258,12 +260,13 @@ document.querySelectorAll('.complete-icon-btn').forEach(btn => {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    alert("Program marked as completed.");
                     location.reload();
                 } else {
-                    alert("Error: " + data.message);
+                    alert("Error: " + (data.message || "Unknown error"));
                 }
             })
-            .catch(err => alert("Network error"));
+            .catch(err => alert("Network error: " + err.message));
         }
     });
 });

@@ -258,6 +258,16 @@ button:hover {
     background: #a00d24;
 }
 
+.action-btn.archive {
+    background: #c8102e;           /* neutral gray to distinguish from red "Add" */
+    color: white;
+    text-decoration: none !important;
+}
+
+.action-btn.archive:hover {
+    background: #a00d24;           /* darker gray on hover */
+}
+
 .action-btn.edit,
 .cancel-edit {
     background: #6b7280;

@@ -10,13 +10,14 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once '../config/db.php';
 
 try {
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
-               type_of_extension_service_agenda, sdg_goals, year_of_implementation
+               type_of_extension_service_agenda, sdg_goals
         FROM program_entries
         WHERE status = 'completed'
         ORDER BY updated_at DESC, title ASC
     ");
+    $stmt->execute();
     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
@@ -42,13 +43,13 @@ try {
         </div>
         <nav class="main-nav">
             <a href="../index.php" class="nav-button">Home</a>
-            <a href="list.php" class="nav-button">Active PPA</a>
+            <a href="list.php" class="nav-button">PPA</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>
 
     <main class="dashboard-content">
-        <h1>Completed Programs</h1>
+        <h1>Monitoring & Evaluation Phase</h1>
 
         <?php if (!empty($error)): ?>
             <p class="error"><?= htmlspecialchars($error) ?></p>
@@ -63,9 +64,9 @@ try {
                                     onclick="window.location.href='view.php?mode=program&id=<?= $program['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
-                                    <?= htmlspecialchars($program['type_of_extension_service_agenda']) ?> · 
-                                    Completed
-                                </span>
+    <?= htmlspecialchars($program['type_of_extension_service_agenda']) ?> · 
+    M&E Phase
+</span>
                             </button>
                         </div>
                     <?php endforeach; ?>
