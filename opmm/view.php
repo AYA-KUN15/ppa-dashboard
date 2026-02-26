@@ -19,13 +19,13 @@ if ($mode !== 'program' || !$id || !is_numeric($id)) {
 
 try {
     $stmt = $pdo->prepare("
-    SELECT title, location, duration_start, duration_end,
-           type_of_extension_service_agenda, sdg_goals, offices_involved,
-           programs_involved, partner_agencies, beneficiaries_json,
-           total_cost, source_of_fund, status
-    FROM program_entries
-    WHERE id = ?
-");
+        SELECT title, location, duration_start, duration_end,
+               type_of_extension_service_agenda, sdg_goals, offices_involved,
+               programs_involved, partner_agencies, beneficiaries_json,
+               total_cost, source_of_fund, status
+        FROM program_entries
+        WHERE id = ?
+    ");
     $stmt->execute([$id]);
     $program = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -36,11 +36,11 @@ try {
 
     // Get projects under this program
     $stmt = $pdo->prepare("
-        SELECT id, project_title, activities, month_of_implementation
-        FROM project_entries
-        WHERE program_id = ? AND status = 'active'
-        ORDER BY month_of_implementation ASC
-    ");
+    SELECT id, project_title, activities, date_of_implementation, status
+    FROM project_entries
+    WHERE program_id = ? AND status = 'active'
+    ORDER BY date_of_implementation ASC
+");
     $stmt->execute([$id]);
     $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -54,7 +54,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Program - <?= htmlspecialchars($program['title'] ?? 'Not Found') ?> 
-    (<?= htmlspecialchars($program['status'] ?? 'Unknown') ?>)</title>
+        (<?= htmlspecialchars($program['status'] ?? 'Unknown') ?>)</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -99,15 +99,36 @@ try {
                 <?php if (empty($projects)): ?>
                     <p>No projects added yet.</p>
                 <?php else: ?>
-                    <ul>
-                        <?php foreach ($projects as $project): ?>
-                            <li>
-                                <strong><?= htmlspecialchars($project['project_title']) ?></strong><br>
-                                <?= htmlspecialchars($project['activities']) ?> 
-                                (<?= htmlspecialchars($project['month_of_implementation']) ?>)
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
+                    <div class="quarter-scroll-container">
+                        <div class="quarter-buttons">
+                            <?php foreach ($projects as $project): ?>
+                                <div class="quarter-item">
+                                    <button class="quarter-btn <?= ($project['status'] ?? '') === 'completed' ? 'completed-project' : '' ?>" 
+        onclick="window.location.href='view_project.php?id=<?= $project['id'] ?>'">
+                                        <span class="quarter-btn-title"><?= htmlspecialchars($project['project_title']) ?></span>
+                                        <span class="quarter-btn-subtitle">
+                                            <?= htmlspecialchars($project['date_of_implementation']) ?>
+                                            <?php if (($project['status'] ?? '') !== 'completed'): ?>
+                                        </span>
+                                    </button>
+
+                                    <button class="action-icon edit-icon-btn" 
+                                            onclick="window.location.href='edit.php?mode=project&id=<?= $project['id'] ?>'"
+                                            title="Edit project">
+                                        <span class="material-icons">edit</span>
+                                    </button>
+
+                                    <button class="action-icon complete-icon-btn" 
+            data-id="<?= $project['id'] ?>"
+            data-mode="project"
+            title="Mark as Completed">
+        <span class="material-icons">check_circle</span>
+    </button>
+<?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                 <?php endif; ?>
                 <a href="add.php?mode=project&program_id=<?= $id ?>" class="action-btn add" style="margin-top: 16px;">Add New Project</a>
             </div>
@@ -126,5 +147,6 @@ try {
     summary += `Total: ${total}`;
     document.getElementById('view-beneficiaries').textContent = summary || 'None added';
     </script>
+
 </body>
 </html>

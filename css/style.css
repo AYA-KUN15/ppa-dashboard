@@ -347,6 +347,19 @@ button:hover {
     max-width: 100%;             /* prevent overflow */
 }
 
+/* Green hover for completed projects */
+.quarter-btn.completed-project:hover,
+.quarter-btn.completed-project:hover .quarter-btn-title {
+    background: #ecfdf5 !important; /* very light green */
+    border-color: #10b981 !important;
+    color: #065f46 !important;
+}
+
+/* Optional: gray out completed projects slightly */
+.quarter-btn.completed-project {
+    opacity: 0.9;
+}
+
 .quarter-btn {
     padding: 14px 20px 14px 20px;  /* balanced padding on all sides */
     background: #ffffff;

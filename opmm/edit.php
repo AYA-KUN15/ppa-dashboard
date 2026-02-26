@@ -221,8 +221,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                     <label for="activities">Activities *</label>
                     <input type="text" id="activities" name="activities" value="<?= htmlspecialchars($entry['activities']) ?>" required>
 
-                    <label for="month_of_implementation">Month of Implementation *</label>
-                    <input type="text" id="month_of_implementation" name="month_of_implementation" value="<?= htmlspecialchars($entry['month_of_implementation']) ?>" required>
+                    <label>Date of Implementation *</label>
+                    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <select name="impl_month" required style="flex: 1; min-width: 160px;">
+                            <option value="">Select Month</option>
+                            <option value="January">January</option>
+                            <option value="February">February</option>
+                            <option value="March">March</option>
+                            <option value="April">April</option>
+                            <option value="May">May</option>
+                            <option value="June">June</option>
+                            <option value="July">July</option>
+                            <option value="August">August</option>
+                            <option value="September">September</option>
+                            <option value="October">October</option>
+                            <option value="November">November</option>
+                            <option value="December">December</option>
+                        </select>
+
+                        <select name="impl_year" required style="flex: 1; min-width: 120px;">
+                            <option value="">Select Year</option>
+                            <?php
+                            $currentYear = date('Y');
+                            for ($y = $currentYear - 1; $y <= $currentYear + 5; $y++) {
+                                $selected = ($y == $currentYear) ? 'selected' : '';
+                                echo "<option value=\"$y\" $selected>$y</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
 
                 <?php elseif ($mode === 'activity'): ?>
                     <label for="activity_no">Activity No. *</label>

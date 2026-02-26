@@ -41,20 +41,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($mode === 'project') {
             $stmt = $pdo->prepare("
                 INSERT INTO project_entries (
-                    program_id, project_title, month_of_implementation
-                ) VALUES (?, ?, ?, ?)
+                    program_id, project_title, date_of_implementation
+                ) VALUES (?, ?, ?)
             ");
             $stmt->execute([
-                $d['program_id'], $d['project_title'], $d['month']
+                $d['program_id'], $d['project_title'], $d['date_of_implementation']
             ]);
         } elseif ($mode === 'activity') {
             $stmt = $pdo->prepare("
                 INSERT INTO activity_entries (
-                    project_id, activity_no, activity_name, month_of_implementation
+                    project_id, activity_no, activity_name, date_of_implementation
                 ) VALUES (?, ?, ?, ?)
             ");
             $stmt->execute([
-                $d['project_id'], $d['activity_no'], $d['activity_name'], $d['month']
+                $d['project_id'], $d['activity_no'], $d['activity_name'], $d['date_of_implementation']
             ]);
         }
 
@@ -101,32 +101,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($mode === 'project') {
             $program_id = $_POST['program_id'] ?? null;
             $project_title = trim($_POST['project_title'] ?? '');
-            $month = trim($_POST['month_of_implementation'] ?? '');
+            $impl_month = trim($_POST['impl_month'] ?? '');
+            $impl_year = trim($_POST['impl_year'] ?? '');
 
-            if (!$program_id || empty($project_title) || empty($activities) || empty($month)) {
+            if (!$program_id || empty($project_title) || empty($impl_month) || empty($impl_year)) {
                 $error = 'Please fill all required fields.';
             } else {
-                $_SESSION['pending_project'] = [
-                    'program_id' => $program_id,
-                    'project_title' => $project_title,
-                    'month_of_implementation' => $month
-                ];
-                $show_confirmation = true;
+                // Convert selected month/year to date string for validation
+                $monthNum = date('m', strtotime($impl_month . ' 1'));
+                $impl_date_str = "$impl_year-$monthNum-01";
+                $impl_date = strtotime($impl_date_str);
+
+                // Get parent program duration
+                $progStmt = $pdo->prepare("SELECT duration_start, duration_end FROM program_entries WHERE id = ?");
+                $progStmt->execute([$program_id]);
+                $program = $progStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($program) {
+                    $start = strtotime($program['duration_start']);
+                    $end = strtotime($program['duration_end']);
+
+                    if ($impl_date < $start || $impl_date > $end) {
+                        $error = "Implementation date must be within program duration ({$program['duration_start']} to {$program['duration_end']}).";
+                    } else {
+                        $_SESSION['pending_project'] = [
+                            'program_id' => $program_id,
+                            'project_title' => $project_title,
+                            'date_of_implementation' => "$impl_month $impl_year"
+                        ];
+                        $show_confirmation = true;
+                    }
+                } else {
+                    $error = 'Parent program not found.';
+                }
             }
         } elseif ($mode === 'activity') {
             $project_id = $_POST['project_id'] ?? null;
             $activity_no = trim($_POST['activity_no'] ?? '');
             $activity_name = trim($_POST['activity_name'] ?? '');
-            $month = trim($_POST['month_of_implementation'] ?? '');
+            $impl_month = trim($_POST['impl_month'] ?? '');
+            $impl_year = trim($_POST['impl_year'] ?? '');
 
-            if (!$project_id || empty($activity_no) || empty($activity_name) || empty($month)) {
+            if (!$project_id || empty($activity_no) || empty($activity_name) || empty($impl_month) || empty($impl_year)) {
                 $error = 'Please fill all required fields.';
             } else {
+                // Similar validation can be added later for activity within project
                 $_SESSION['pending_activity'] = [
                     'project_id' => $project_id,
                     'activity_no' => $activity_no,
                     'activity_name' => $activity_name,
-                    'month_of_implementation' => $month
+                    'date_of_implementation' => "$impl_month $impl_year"
                 ];
                 $show_confirmation = true;
             }
@@ -152,16 +176,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <span class="logo-text">PPA Dashboard</span>
         </div>
         <nav class="main-nav">
-    <a href="../index.php" class="nav-button">Home</a>
-    <?php if ($mode === 'program'): ?>
-        <a href="list.php" class="nav-button">PPA</a>
-    <?php elseif ($mode === 'project'): ?>
-        <a href="view.php?mode=program&id=<?= htmlspecialchars($_GET['program_id'] ?? '') ?>" class="nav-button">Programs</a>
-    <?php elseif ($mode === 'activity'): ?>
-        <a href="view.php?mode=project&id=<?= htmlspecialchars($_GET['project_id'] ?? '') ?>" class="nav-button">Projects</a>
-    <?php endif; ?>
-    <a href="../logout.php" class="nav-button logout">Logout</a>
-</nav>
+            <a href="../index.php" class="nav-button">Home</a>
+            <?php if ($mode === 'program'): ?>
+                <a href="list.php" class="nav-button">PPA</a>
+            <?php elseif ($mode === 'project'): ?>
+                <a href="view.php?mode=program&id=<?= htmlspecialchars($_GET['program_id'] ?? '') ?>" class="nav-button">Programs</a>
+            <?php elseif ($mode === 'activity'): ?>
+                <a href="view.php?mode=project&id=<?= htmlspecialchars($_GET['project_id'] ?? '') ?>" class="nav-button">Projects</a>
+            <?php endif; ?>
+            <a href="../logout.php" class="nav-button logout">Logout</a>
+        </nav>
     </header>
 
     <main class="dashboard-content">
@@ -190,12 +214,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p><strong>Source of Fund:</strong> <?= htmlspecialchars($d['source_fund'] ?: 'N/A') ?></p>
                 <?php elseif ($mode === 'project'): ?>
                     <p><strong>Project Title:</strong> <?= htmlspecialchars($d['project_title']) ?></p>
-                    <p><strong>Activities:</strong> <?= htmlspecialchars($d['activities']) ?></p>
-                    <p><strong>Month of Implementation:</strong> <?= htmlspecialchars($d['month_of_implementation']) ?></p>
+                    <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($d['date_of_implementation']) ?></p>
                 <?php elseif ($mode === 'activity'): ?>
                     <p><strong>Activity No.:</strong> <?= htmlspecialchars($d['activity_no']) ?></p>
                     <p><strong>Activity Name:</strong> <?= htmlspecialchars($d['activity_name']) ?></p>
-                    <p><strong>Month of Implementation:</strong> <?= htmlspecialchars($d['month_of_implementation']) ?></p>
+                    <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($d['date_of_implementation']) ?></p>
                 <?php endif; ?>
 
                 <form method="POST">
@@ -255,22 +278,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="project_title">Project Title *</label>
                     <input type="text" id="project_title" name="project_title" required>
 
-                    <label for="month_of_implementation">Month of Implementation *</label>
-<select id="month_of_implementation" name="month_of_implementation" required>
-    <option value="">Select Month</option>
-    <option value="January">January</option>
-    <option value="February">February</option>
-    <option value="March">March</option>
-    <option value="April">April</option>
-    <option value="May">May</option>
-    <option value="June">June</option>
-    <option value="July">July</option>
-    <option value="August">August</option>
-    <option value="September">September</option>
-    <option value="October">October</option>
-    <option value="November">November</option>
-    <option value="December">December</option>
-</select>
+                    <label>Date of Implementation *</label>
+                    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <select name="impl_month" required style="flex: 1; min-width: 160px;">
+                            <option value="">Select Month</option>
+                            <option value="January">January</option>
+                            <option value="February">February</option>
+                            <option value="March">March</option>
+                            <option value="April">April</option>
+                            <option value="May">May</option>
+                            <option value="June">June</option>
+                            <option value="July">July</option>
+                            <option value="August">August</option>
+                            <option value="September">September</option>
+                            <option value="October">October</option>
+                            <option value="November">November</option>
+                            <option value="December">December</option>
+                        </select>
+
+                        <select name="impl_year" required style="flex: 1; min-width: 120px;">
+                            <option value="">Select Year</option>
+                            <?php
+                            $currentYear = date('Y');
+                            for ($y = $currentYear - 1; $y <= $currentYear + 5; $y++) {
+                                $selected = ($y == $currentYear) ? 'selected' : '';
+                                echo "<option value=\"$y\" $selected>$y</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
 
                 <?php elseif ($mode === 'activity'): ?>
                     <input type="hidden" name="project_id" value="<?= htmlspecialchars($_GET['project_id'] ?? '') ?>">
@@ -281,22 +317,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="activity_name">Activity Name *</label>
                     <input type="text" id="activity_name" name="activity_name" required>
 
-                    <label for="month_of_implementation">Month of Implementation *</label>
-<select id="month_of_implementation" name="month_of_implementation" required>
-    <option value="">Select Month</option>
-    <option value="January">January</option>
-    <option value="February">February</option>
-    <option value="March">March</option>
-    <option value="April">April</option>
-    <option value="May">May</option>
-    <option value="June">June</option>
-    <option value="July">July</option>
-    <option value="August">August</option>
-    <option value="September">September</option>
-    <option value="October">October</option>
-    <option value="November">November</option>
-    <option value="December">December</option>
-</select>
+                    <label>Date of Implementation *</label>
+                    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <select name="impl_month" required style="flex: 1; min-width: 160px;">
+                            <option value="">Select Month</option>
+                            <option value="January">January</option>
+                            <option value="February">February</option>
+                            <option value="March">March</option>
+                            <option value="April">April</option>
+                            <option value="May">May</option>
+                            <option value="June">June</option>
+                            <option value="July">July</option>
+                            <option value="August">August</option>
+                            <option value="September">September</option>
+                            <option value="October">October</option>
+                            <option value="November">November</option>
+                            <option value="December">December</option>
+                        </select>
+
+                        <select name="impl_year" required style="flex: 1; min-width: 120px;">
+                            <option value="">Select Year</option>
+                            <?php
+                            $currentYear = date('Y');
+                            for ($y = $currentYear - 1; $y <= $currentYear + 5; $y++) {
+                                $selected = ($y == $currentYear) ? 'selected' : '';
+                                echo "<option value=\"$y\" $selected>$y</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
                 <?php endif; ?>
 
                 <button type="submit">Review & Add</button>
@@ -501,8 +550,6 @@ function saveModalSelections(type) {
 }
 
 // Beneficiaries dynamic rows
-let beneficiaryIndex = 0;
-
 function addBeneficiaryRow(type = '', male = 0, female = 0) {
     const container = document.getElementById('beneficiary-rows');
     const row = document.createElement('div');
@@ -511,47 +558,36 @@ function addBeneficiaryRow(type = '', male = 0, female = 0) {
     row.style.alignItems = 'center';
     row.style.gap = '12px';
     row.style.marginBottom = '16px';
-    row.style.flexWrap = 'wrap'; // good for small screens
+    row.style.flexWrap = 'wrap';
 
     row.innerHTML = `
-        <div style="flex: 2; min-width: 220px; display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 14px; font-weight: 500; color: #444;">Beneficiary Type</label>
-            <input type="text" 
-                   placeholder="e.g., Farmers, Students, PWDs, Senior Citizens" 
-                   value="${type}" 
-                   required
-                   style="width: 100%; font-size: 16px; padding: 10px 14px; height: 44px; 
-                          border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
-        </div>
+        <input type="text" 
+               placeholder="e.g., Farmers, Students, PWDs, Senior Citizens" 
+               value="${type}" 
+               class="beneficiary-type"
+               required
+               style="flex: 2; min-width: 220px;">
 
-        <div style="flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 14px; font-weight: 500; color: #444;">Male</label>
-            <input type="number" 
-                   placeholder="0" 
-                   value="${male}" 
-                   min="0" 
-                   required
-                   style="width: 100%; font-size: 16px; padding: 10px; height: 44px; 
-                          text-align: center; border: 1px solid #ccc; border-radius: 6px;">
-        </div>
+        <input type="number" 
+               placeholder="Male" 
+               value="${male}" 
+               min="0" 
+               class="beneficiary-male"
+               required
+               style="flex: 1; max-width: 100px;">
 
-        <div style="flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 14px; font-weight: 500; color: #444;">Female</label>
-            <input type="number" 
-                   placeholder="0" 
-                   value="${female}" 
-                   min="0" 
-                   required
-                   style="width: 100%; font-size: 16px; padding: 10px; height: 44px; 
-                          text-align: center; border: 1px solid #ccc; border-radius: 6px;">
-        </div>
+        <input type="number" 
+               placeholder="Female" 
+               value="${female}" 
+               min="0" 
+               class="beneficiary-female"
+               required
+               style="flex: 1; max-width: 100px;">
 
         <button type="button" 
                 onclick="this.closest('.beneficiary-row').remove();"
-                style="padding: 10px 16px; background: #c8102e; color: white; 
-                       border: none; border-radius: 6px; cursor: pointer; font-size: 14px; 
-                       white-space: nowrap; align-self: flex-end; margin-top: 20px;">
-            Remove
+                class="remove-btn">
+            ×
         </button>
     `;
 

@@ -28,6 +28,7 @@ function filterByYear(year) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    /*
     // Edit icon click (opens edit modal)
     document.querySelectorAll('.edit-icon-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
             openModal('edit-modal');
         });
     });
+    */
 
     // Delete icon click (opens delete confirmation modal)
     document.querySelectorAll('.delete-icon-btn').forEach(btn => {
