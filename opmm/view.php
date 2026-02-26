@@ -19,13 +19,13 @@ if ($mode !== 'program' || !$id || !is_numeric($id)) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT title, location, duration_start, duration_end,
-               type_of_extension_service_agenda, sdg_goals, offices_involved,
-               programs_involved, partner_agencies, beneficiaries_json,
-               total_cost, source_of_fund
-        FROM program_entries
-        WHERE id = ? AND status = 'active'
-    ");
+    SELECT title, location, duration_start, duration_end,
+           type_of_extension_service_agenda, sdg_goals, offices_involved,
+           programs_involved, partner_agencies, beneficiaries_json,
+           total_cost, source_of_fund, status
+    FROM program_entries
+    WHERE id = ?
+");
     $stmt->execute([$id]);
     $program = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -53,7 +53,8 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Program - <?= htmlspecialchars($program['title'] ?? 'Program') ?></title>
+    <title>View Program - <?= htmlspecialchars($program['title'] ?? 'Not Found') ?> 
+    (<?= htmlspecialchars($program['status'] ?? 'Unknown') ?>)</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
 </head>

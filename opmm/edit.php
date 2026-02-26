@@ -235,10 +235,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                     <input type="text" id="month_of_implementation" name="month_of_implementation" value="<?= htmlspecialchars($entry['month_of_implementation']) ?>" required>
                 <?php endif; ?>
 
-                <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
-    <button type="submit" 
-            style="padding: 12px 24px; background: #c8102e; color: white; border: none; border-radius: 6px; 
-                   cursor: pointer; font-size: 16px; font-weight: 500; height: 48px; line-height: 1; min-width: 140px;">
+                <div class="selected-beneficiaries">
+    <button type="button" 
+            style="padding: 14px 20px; background: #c8102e; color: white; 
+                   border: none; border-radius: 8px; cursor: pointer; 
+                   font-weight: 600; box-sizing: border-box;">
         Save Changes
     </button>
 </div>

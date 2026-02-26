@@ -191,10 +191,25 @@ try {
                        value="<?= htmlspecialchars($_GET['duration_end_year'] ?? '') ?>" style="width: 120px;">
             </div>
 
-            <div class="modal-actions">
-    <button type="submit">Apply</button>
-    <button type="button" onclick="closeModal('filter-modal')">Cancel</button>
-    <button type="button" onclick="window.location.href='list.php'">Clear</button>
+            <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+    <button type="submit" 
+            style="flex: 1; padding: 14px 24px; background: #c8102e; color: white; 
+                   border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; 
+                   font-weight: 600; height: 52px; box-sizing: border-box;">
+        Apply
+    </button>
+    <button type="button" onclick="closeModal('filter-modal')"
+            style="flex: 1; padding: 14px 24px; background: #c8102e; color: white; 
+                   border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; 
+                   font-weight: 600; height: 52px; box-sizing: border-box;">
+        Cancel
+    </button>
+    <button type="button" onclick="window.location.href='list.php'"
+            style="flex: 1; padding: 14px 24px; background: #c8102e; color: white; 
+                   border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; 
+                   font-weight: 600; height: 52px; box-sizing: border-box;">
+        Clear
+    </button>
 </div>
         </form>
     </div>

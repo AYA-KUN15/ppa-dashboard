@@ -41,11 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($mode === 'project') {
             $stmt = $pdo->prepare("
                 INSERT INTO project_entries (
-                    program_id, project_title, activities, month_of_implementation
+                    program_id, project_title, month_of_implementation
                 ) VALUES (?, ?, ?, ?)
             ");
             $stmt->execute([
-                $d['program_id'], $d['project_title'], $d['activities'], $d['month']
+                $d['program_id'], $d['project_title'], $d['month']
             ]);
         } elseif ($mode === 'activity') {
             $stmt = $pdo->prepare("
@@ -101,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($mode === 'project') {
             $program_id = $_POST['program_id'] ?? null;
             $project_title = trim($_POST['project_title'] ?? '');
-            $activities = trim($_POST['activities'] ?? '');
             $month = trim($_POST['month_of_implementation'] ?? '');
 
             if (!$program_id || empty($project_title) || empty($activities) || empty($month)) {
@@ -110,7 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['pending_project'] = [
                     'program_id' => $program_id,
                     'project_title' => $project_title,
-                    'activities' => $activities,
                     'month_of_implementation' => $month
                 ];
                 $show_confirmation = true;
@@ -154,10 +152,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <span class="logo-text">PPA Dashboard</span>
         </div>
         <nav class="main-nav">
-            <a href="../index.php" class="nav-button">Home</a>
-            <a href="list.php" class="nav-button">PPA</a>
-            <a href="../logout.php" class="nav-button logout">Logout</a>
-        </nav>
+    <a href="../index.php" class="nav-button">Home</a>
+    <?php if ($mode === 'program'): ?>
+        <a href="list.php" class="nav-button">PPA</a>
+    <?php elseif ($mode === 'project'): ?>
+        <a href="view.php?mode=program&id=<?= htmlspecialchars($_GET['program_id'] ?? '') ?>" class="nav-button">Programs</a>
+    <?php elseif ($mode === 'activity'): ?>
+        <a href="view.php?mode=project&id=<?= htmlspecialchars($_GET['project_id'] ?? '') ?>" class="nav-button">Projects</a>
+    <?php endif; ?>
+    <a href="../logout.php" class="nav-button logout">Logout</a>
+</nav>
     </header>
 
     <main class="dashboard-content">
@@ -251,11 +255,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label for="project_title">Project Title *</label>
                     <input type="text" id="project_title" name="project_title" required>
 
-                    <label for="activities">Activities *</label>
-                    <input type="text" id="activities" name="activities" required>
-
                     <label for="month_of_implementation">Month of Implementation *</label>
-                    <input type="text" id="month_of_implementation" name="month_of_implementation" required placeholder="e.g., February 2025">
+<select id="month_of_implementation" name="month_of_implementation" required>
+    <option value="">Select Month</option>
+    <option value="January">January</option>
+    <option value="February">February</option>
+    <option value="March">March</option>
+    <option value="April">April</option>
+    <option value="May">May</option>
+    <option value="June">June</option>
+    <option value="July">July</option>
+    <option value="August">August</option>
+    <option value="September">September</option>
+    <option value="October">October</option>
+    <option value="November">November</option>
+    <option value="December">December</option>
+</select>
 
                 <?php elseif ($mode === 'activity'): ?>
                     <input type="hidden" name="project_id" value="<?= htmlspecialchars($_GET['project_id'] ?? '') ?>">
@@ -267,7 +282,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="text" id="activity_name" name="activity_name" required>
 
                     <label for="month_of_implementation">Month of Implementation *</label>
-                    <input type="text" id="month_of_implementation" name="month_of_implementation" required placeholder="e.g., February 2025">
+<select id="month_of_implementation" name="month_of_implementation" required>
+    <option value="">Select Month</option>
+    <option value="January">January</option>
+    <option value="February">February</option>
+    <option value="March">March</option>
+    <option value="April">April</option>
+    <option value="May">May</option>
+    <option value="June">June</option>
+    <option value="July">July</option>
+    <option value="August">August</option>
+    <option value="September">September</option>
+    <option value="October">October</option>
+    <option value="November">November</option>
+    <option value="December">December</option>
+</select>
                 <?php endif; ?>
 
                 <button type="submit">Review & Add</button>

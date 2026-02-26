@@ -618,6 +618,8 @@ button:hover {
     justify-content: flex-end;
 }
 
+
+
 .modal-actions button {
     flex: 1;
     max-width: 140px;

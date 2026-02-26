@@ -1,5 +1,5 @@
 <?php
-// archive.php
+// archive.php - Monitoring & Evaluation Phase
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -12,9 +12,9 @@ require_once '../config/db.php';
 try {
     $stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
-               type_of_extension_service_agenda, sdg_goals
+               type_of_extension_service_agenda, sdg_goals, status
         FROM program_entries
-        WHERE status = 'completed'
+        WHERE status != 'active'
         ORDER BY updated_at DESC, title ASC
     ");
     $stmt->execute();
@@ -30,7 +30,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Completed Programs - PPA Dashboard</title>
+    <title>Monitoring & Evaluation Phase - PPA Dashboard</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -54,7 +54,7 @@ try {
         <?php if (!empty($error)): ?>
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php elseif (empty($programs)): ?>
-            <p>No completed programs found.</p>
+            <p>No programs in Monitoring & Evaluation phase yet.</p>
         <?php else: ?>
             <div class="quarter-scroll-container">
                 <div class="quarter-buttons">
@@ -64,9 +64,9 @@ try {
                                     onclick="window.location.href='view.php?mode=program&id=<?= $program['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
-    <?= htmlspecialchars($program['type_of_extension_service_agenda']) ?> · 
-    M&E Phase
-</span>
+                                    <?= htmlspecialchars($program['type_of_extension_service_agenda']) ?> · 
+                                    M&E Phase
+                                </span>
                             </button>
                         </div>
                     <?php endforeach; ?>
@@ -75,6 +75,5 @@ try {
         <?php endif; ?>
     </main>
 
-    <script src="../js/dashboard.js"></script>
 </body>
 </html>

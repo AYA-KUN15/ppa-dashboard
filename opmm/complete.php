@@ -13,26 +13,37 @@ $id = $_POST['id'] ?? null;
 $mode = $_POST['mode'] ?? '';
 
 if (!$id || !is_numeric($id) || $mode !== 'program') {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => 'Invalid request - missing/invalid ID or mode']);
     exit;
 }
 
 try {
+    // Force update without status condition
     $stmt = $pdo->prepare("
         UPDATE program_entries 
         SET status = 'completed', 
             updated_at = NOW()
-        WHERE id = ? 
-        AND status = 'active'
+        WHERE id = ?
     ");
     $stmt->execute([$id]);
 
-    if ($stmt->rowCount() === 1) {
-        echo json_encode(['success' => true, 'message' => 'Marked as completed']);
+    $affected = $stmt->rowCount();
+
+    if ($affected === 1) {
+        // Verify what was actually set
+        $check = $pdo->prepare("SELECT status FROM program_entries WHERE id = ?");
+        $check->execute([$id]);
+        $actualStatus = $check->fetchColumn();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Marked as completed',
+            'actual_status' => $actualStatus
+        ]);
     } else {
         echo json_encode([
-            'success' => false, 
-            'message' => 'No change - program not found or already completed'
+            'success' => false,
+            'message' => 'No rows updated - program ID not found'
         ]);
     }
 } catch (PDOException $e) {
