@@ -352,12 +352,28 @@ button:hover {
 .quarter-btn.completed-project:hover .quarter-btn-title {
     background: #ecfdf5 !important; /* very light green */
     border-color: #10b981 !important;
-    color: #065f46 !important;
 }
 
 /* Optional: gray out completed projects slightly */
 .quarter-btn.completed-project {
     opacity: 0.9;
+}
+
+.quarter-btn.completed-project {
+    background: #ecfdf5 !important;
+    border: 2px solid #10b981 !important;
+    color: #065f46 !important;
+}
+
+.quarter-btn.completed-project:hover {
+    background: #d1fae5 !important;
+    border-color: #059669 !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Optional: hide the complete icon after it's completed */
+.quarter-item.completed .complete-icon-btn {
+    display: none;
 }
 
 .quarter-btn {

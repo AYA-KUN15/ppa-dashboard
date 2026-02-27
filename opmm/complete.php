@@ -1,52 +1,35 @@
 <?php
+// complete.php
 session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
+
 require_once '../config/db.php';
 
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
-    echo json_encode(['success' => false, 'message' => 'Not logged in']);
-    exit;
-}
-
 $id = $_POST['id'] ?? null;
-$mode = $_POST['mode'] ?? '';
+$mode = $_POST['mode'] ?? null;
 
-if (!$id || !is_numeric($id) || $mode !== 'program') {
-    echo json_encode(['success' => false, 'message' => 'Invalid request - missing/invalid ID or mode']);
+if (!$id || !is_numeric($id) || !in_array($mode, ['program', 'project', 'activity'])) {
+    echo json_encode(['success' => false, 'message' => 'Invalid request']);
     exit;
 }
 
 try {
-    // Force update without status condition
-    $stmt = $pdo->prepare("
-        UPDATE program_entries 
-        SET status = 'completed', 
-            updated_at = NOW()
-        WHERE id = ?
-    ");
+    $table = $mode . '_entries';
+    $stmt = $pdo->prepare("UPDATE $table SET status = 'completed', updated_at = NOW() WHERE id = ?");
     $stmt->execute([$id]);
 
-    $affected = $stmt->rowCount();
-
-    if ($affected === 1) {
-        // Verify what was actually set
-        $check = $pdo->prepare("SELECT status FROM program_entries WHERE id = ?");
-        $check->execute([$id]);
-        $actualStatus = $check->fetchColumn();
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Marked as completed',
-            'actual_status' => $actualStatus
-        ]);
+    if ($stmt->rowCount() > 0) {
+        echo json_encode(['success' => true]);
     } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'No rows updated - program ID not found'
-        ]);
+        echo json_encode(['success' => false, 'message' => 'No rows affected (entry may not exist or already completed)']);
     }
 } catch (PDOException $e) {
-    echo json_encode(['success' => false, 'message' => 'DB error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
-?>
