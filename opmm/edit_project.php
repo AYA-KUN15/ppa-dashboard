@@ -53,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sdg_goals = trim($_POST['sdg_goals'] ?? '');
     $offices = trim($_POST['offices'] ?? '');
     $programs = trim($_POST['programs'] ?? '');
-    $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
+    $beneficiaries = trim($_POST['beneficiaries'] ?? '');
 
     if (empty($project_title) || empty($impl_month) || empty($impl_year) ||
         empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
-        empty($programs) || $beneficiaries === '[]') {
-        $error = 'Please fill all required fields.';
+        empty($programs) || empty($beneficiaries)) {
+        $error = 'Please fill all required fields (including at least one beneficiary).';
     } else {
         $date_of_implementation = "$impl_month $impl_year";
 
@@ -88,6 +88,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Current values: POST first (on error), else DB
+$isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
+$project_title_val   = $isPost ? trim($_POST['project_title'] ?? '') : htmlspecialchars($entry['project_title'] ?? '');
+$type_agenda_val     = $isPost ? trim($_POST['type_agenda'] ?? '') : htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '');
+$sdg_goals_val       = $isPost ? trim($_POST['sdg_goals'] ?? '') : htmlspecialchars($entry['sdg_goals'] ?? '');
+$offices_val         = $isPost ? trim($_POST['offices'] ?? '') : htmlspecialchars($entry['offices_involved'] ?? '');
+$programs_val        = $isPost ? trim($_POST['programs'] ?? '') : htmlspecialchars($entry['programs_involved'] ?? '');
+$beneficiaries_val   = $isPost ? trim($_POST['beneficiaries'] ?? '') : htmlspecialchars($entry['beneficiaries_json'] ?? '');
+$impl_month_val      = $isPost ? trim($_POST['impl_month'] ?? '') : (explode(' ', trim($entry['date_of_implementation']))[0] ?? '');
+$impl_year_val       = $isPost ? trim($_POST['impl_year'] ?? '') : (explode(' ', trim($entry['date_of_implementation']))[1] ?? '');
 ?>
 
 <!DOCTYPE html>
@@ -122,45 +133,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST">
             <label for="project_title">Project Title *</label>
-            <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($entry['project_title']) ?>" required>
+            <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($project_title_val) ?>" required>
 
             <!-- Type -->
             <label>Type of Extension Service Agenda *</label>
             <button type="button" onclick="openModal('type-modal')">Select Types</button>
-            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? 'None') ?>
-            </div>
-            <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '') ?>">
+            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
+            <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($type_agenda_val) ?>">
 
             <!-- SDG -->
             <label>Sustainable Development Goals *</label>
             <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['sdg_goals'] ?? 'None') ?>
-            </div>
-            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($entry['sdg_goals'] ?? '') ?>">
+            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
+            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($sdg_goals_val) ?>">
 
             <!-- Offices -->
             <label>Offices Involved *</label>
             <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['offices_involved'] ?? 'None') ?>
-            </div>
-            <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($entry['offices_involved'] ?? '') ?>">
+            <div id="selected-officess" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
+            <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($offices_val) ?>">
 
             <!-- Programs -->
             <label>Programs Involved *</label>
             <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['programs_involved'] ?? 'None') ?>
-            </div>
-            <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($entry['programs_involved'] ?? '') ?>">
+            <div id="selected-programss" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
+            <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($programs_val) ?>">
 
             <!-- Beneficiaries -->
             <label>Beneficiaries *</label>
             <button type="button" onclick="openModal('beneficiaries-modal')">Select Beneficiaries</button>
-            <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-            <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($entry['beneficiaries_json'] ?? '[]') ?>">
+            <div id="selected-beneficiariess" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
+            <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($beneficiaries_val) ?>">
 
             <label>Date of Implementation *</label>
             <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
@@ -172,12 +175,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $interval = new DateInterval('P1M');
                     $period = new DatePeriod($start, $interval, $end->modify('+1 day'));
                     $shownMonths = [];
-                    $currentMonth = explode(' ', $entry['date_of_implementation'])[0] ?? '';
                     foreach ($period as $dt) {
                         $month = $dt->format('F');
                         if (!in_array($month, $shownMonths)) {
                             $shownMonths[] = $month;
-                            $selected = ($month === $currentMonth) ? 'selected' : '';
+                            $selected = ($month === $impl_month_val) ? 'selected' : '';
                             echo "<option value=\"$month\" $selected>$month</option>";
                         }
                     }
@@ -189,9 +191,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php
                     $startYear = (int) date('Y', strtotime($parent['duration_start']));
                     $endYear = (int) date('Y', strtotime($parent['duration_end']));
-                    $currentYear = explode(' ', $entry['date_of_implementation'])[1] ?? '';
                     for ($y = $startYear; $y <= $endYear; $y++) {
-                        $selected = ($y == $currentYear) ? 'selected' : '';
+                        $selected = ($y == $impl_year_val) ? 'selected' : '';
                         echo "<option value=\"$y\" $selected>$y</option>";
                     }
                     ?>
@@ -213,8 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $types = explode(', ', $parent['type_of_extension_service_agenda']);
                     foreach ($types as $t) {
                         $t = trim($t);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($t) . '
                             <input type="checkbox" value="' . htmlspecialchars($t) . '">
                         </label>';
@@ -242,8 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sdgs = explode(', ', $parent['sdg_goals']);
                     foreach ($sdgs as $s) {
                         $s = trim($s);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($s) . '
                             <input type="checkbox" value="' . htmlspecialchars($s) . '">
                         </label>';
@@ -271,8 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $offices = explode(', ', $parent['offices_involved']);
                     foreach ($offices as $o) {
                         $o = trim($o);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($o) . '
                             <input type="checkbox" value="' . htmlspecialchars($o) . '">
                         </label>';
@@ -300,8 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $progs = explode(', ', $parent['programs_involved']);
                     foreach ($progs as $p) {
                         $p = trim($p);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($p) . '
                             <input type="checkbox" value="' . htmlspecialchars($p) . '">
                         </label>';
@@ -319,80 +316,115 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <!-- Beneficiaries Modal -->
-<div id="beneficiaries-modal" class="modal-overlay">
-    <div class="modal-box">
-        <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
-        <h2>Select Beneficiaries</h2>
-        <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-            <?php
-            if ($parent['beneficiaries_json']) {
-                $benefs = json_decode($parent['beneficiaries_json'], true);
-                if (is_array($benefs)) {
-                    foreach ($benefs as $b) {
-                        if (!empty($b['type'])) {
-                            echo '
-                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($b['type']) . '
-                                <input type="checkbox" value="' . htmlspecialchars($b['type']) . '">
-                            </label>';
+    <div id="beneficiaries-modal" class="modal-overlay">
+        <div class="modal-box">
+            <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
+            <h2>Select Beneficiaries</h2>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <?php
+                $beneficiary_options = [];
+                if ($parent['beneficiaries_json'] && $parent['beneficiaries_json'] !== '[]') {
+                    $raw = $parent['beneficiaries_json'];
+                    $benefs = json_decode($raw, true);
+
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($benefs)) {
+                        if (!empty($benefs) && is_array($benefs[0]) && !empty($benefs[0]['type'])) {
+                            foreach ($benefs as $b) {
+                                if (!empty($b['type'])) {
+                                    $type = trim($b['type']);
+                                    if ($type) $beneficiary_options[] = $type;
+                                }
+                            }
+                        } elseif (!empty($benefs) && is_string($benefs[0])) {
+                            foreach ($benefs as $type) {
+                                $type = trim($type);
+                                if ($type) $beneficiary_options[] = $type;
+                            }
+                        }
+                    } else {
+                        $items = array_map('trim', explode(',', $raw));
+                        foreach ($items as $type) {
+                            if ($type) $beneficiary_options[] = $type;
                         }
                     }
                 }
-            } else {
-                echo '<p>No beneficiaries available from parent program.</p>';
-            }
-            ?>
-        </div>
-        <div class="modal-actions">
-            <button onclick="saveModalSelections('beneficiaries')">Save</button>
-            <button onclick="closeModal('beneficiaries-modal')">Cancel</button>
+
+                if (!empty($beneficiary_options)) {
+                    foreach ($beneficiary_options as $type) {
+                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                            ' . htmlspecialchars($type) . '
+                            <input type="checkbox" value="' . htmlspecialchars($type) . '">
+                        </label>';
+                    }
+                } else {
+                    echo '<p>No beneficiaries available from parent program.</p>';
+                }
+                ?>
+            </div>
+            <div class="modal-actions">
+                <button onclick="saveModalSelections('beneficiaries')">Save</button>
+                <button onclick="closeModal('beneficiaries-modal')">Cancel</button>
+            </div>
         </div>
     </div>
-</div>s
 
     <script>
     function openModal(modalId) {
-        document.getElementById(modalId).classList.add('active');
-        document.body.classList.add('modal-open');
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('active');
+            document.body.classList.add('modal-open');
+
+            // Re-check boxes every time modal opens
+            const type = modalId.replace('-modal', '');
+            const hidden = document.getElementById(type + '-hidden');
+            if (hidden && hidden.value.trim()) {
+                const values = hidden.value.split(',').map(v => v.trim());
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = values.includes(cb.value.trim());
+                });
+            }
+        } else {
+            console.error('Modal not found:', modalId);
+        }
     }
 
     function closeModal(modalId) {
-        document.getElementById(modalId).classList.remove('active');
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.remove('active');
         document.body.classList.remove('modal-open');
     }
 
     function saveModalSelections(type) {
         const modal = document.getElementById(type + '-modal');
+        if (!modal) return;
+
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
-        const values = Array.from(checkboxes).map(cb => cb.value);
+        const values = Array.from(checkboxes).map(cb => cb.value.trim());
+
         const hidden = document.getElementById(type + '-hidden');
         const display = document.getElementById('selected-' + type + 's');
 
-        hidden.value = values.join(', ');
-        display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+        if (hidden) {
+            hidden.value = values.join(', ');
+        }
+
+        if (display) {
+            display.textContent = values.length > 0 ? values.join(', ') : '';
+        }
+
         closeModal(type + '-modal');
     }
 
     window.addEventListener('load', () => {
-        // Pre-check existing values for all multi-select modals
-        ['type', 'sdg', 'offices', 'programs', 'beneficiaries'].forEach(type => {
+        const fields = ['type', 'sdg', 'offices', 'programs', 'beneficiaries'];
+        fields.forEach(type => {
             const hidden = document.getElementById(type + '-hidden');
-            if (hidden && hidden.value) {
-                const values = hidden.value.split(', ');
-                const modal = document.getElementById(type + '-modal');
-                if (modal) {
-                    const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
-                    checkboxes.forEach(cb => {
-                        if (values.includes(cb.value.trim())) {
-                            cb.checked = true;
-                        }
-                    });
-                }
-                // Update display
-                const display = document.getElementById('selected-' + type + 's');
-                if (display) {
-                    display.textContent = hidden.value || 'None selected';
-                }
+            const display = document.getElementById('selected-' + type + 's');
+            if (hidden && display) {
+                let val = hidden.value.trim();
+                display.textContent = val || '';
             }
         });
     });
