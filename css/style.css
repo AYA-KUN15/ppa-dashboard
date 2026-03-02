@@ -206,7 +206,6 @@ button:hover {
     font-size: 1.1rem;
 }
 
-
 /* Filter + Actions row */
 .filter-actions {
     display: flex;
@@ -347,421 +346,42 @@ button:hover {
     max-width: 100%;             /* prevent overflow */
 }
 
-/* Green hover for completed projects */
+/* ──────────────────────────────────────────────── */
+/* FIXED HOVER FOR COMPLETED PROJECTS - NO WHITE BG   */
+/* ──────────────────────────────────────────────── */
+
+/* Force clean green hover for completed items */
+.quarter-btn.completed-project,
 .quarter-btn.completed-project:hover,
-.quarter-btn.completed-project:hover .quarter-btn-title {
-    background: #ecfdf5 !important; /* very light green */
+.quarter-btn.completed-project:focus,
+.quarter-btn.completed-project:active {
+    background-color: #ecfdf5 !important;     /* light green - adjust shade if needed */
     border-color: #10b981 !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
-/* Optional: gray out completed projects slightly */
+/* Title must stay transparent on hover */
+.quarter-btn.completed-project .quarter-btn-title,
+.quarter-btn.completed-project:hover .quarter-btn-title {
+    background: transparent !important;
+    color: #065f46 !important;                /* dark green text */
+}
+
+/* Green border & shadow on hover for completed card */
+.quarter-item.completed:hover .quarter-btn {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+}
+
+/* Active (non-completed) keep red hover */
+.quarter-btn:not(.completed-project):hover {
+    background: #fef2f2 !important;
+    border-color: #c8102e !important;
+}
+
+/* Optional: slight gray for completed (less opacity) */
 .quarter-btn.completed-project {
-    opacity: 0.9;
+    opacity: 0.95;
 }
 
-.quarter-btn.completed-project {
-    background: #ecfdf5 !important;
-    border: 2px solid #10b981 !important;
-    color: #065f46 !important;
-}
-
-.quarter-btn.completed-project:hover {
-    background: #d1fae5 !important;
-    border-color: #059669 !important;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-/* Optional: hide the complete icon after it's completed */
-.quarter-item.completed .complete-icon-btn {
-    display: none;
-}
-
-.quarter-btn {
-    padding: 14px 20px 14px 20px;  /* balanced padding on all sides */
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 1.05rem;
-    color: #374151;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 100%;
-    box-sizing: border-box;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;       /* ← changed: top-align so icons stay at top when multi-line */
-    gap: 12px;
-    min-height: 56px;              /* minimum height for single line */
-    text-align: left;
-}
-
-.quarter-btn-title {
-    font-weight: 600;
-    flex: 1;                       /* takes available space */
-    line-height: 1.4;              /* comfortable line spacing */
-    word-break: break-word;        /* breaks very long words if needed */
-}
-
-.quarter-btn-title:hover,
-.quarter-btn:hover .quarter-btn-title {
-    /* Remove any hover background/overflow changes */
-    background: transparent;
-}
-
-.quarter-btn-subtitle {
-    font-size: 0.9rem;
-    color: #6b7280;
-    margin-top: 4px;
-    display: block;
-}
-
-.quarter-btn:hover {
-    background: #fef2f2;           /* light red tint on hover */
-    border-color: #c8102e;
-    transform: translateX(4px);    /* subtle movement */
-    box-shadow: 0 2px 8px rgba(200, 16, 46, 0.15);
-}
-
-/*
-.quarter-btn.active {
-    background: #c8102e;
-    color: white;
-    border-color: #c8102e;
-    font-weight: 600;
-} */
-
-.edit-icon {
-    display: none;
-    font-size: 1.3rem;
-    color: #6b7280;
-    margin-left: auto;
-    opacity: 0.7;
-    transition: all 0.2s;
-}
-
-.edit-icon-btn {
-    color: #4b5563;
-}
-
-.edit-icon-btn:hover {
-    background: #fef2f2;
-    color: #c8102e;
-}
-
-.edit-mode-container.edit-mode-active .edit-icon {
-    display: inline-block;
-}
-
-.edit-mode-container.edit-mode-active .quarter-btn:hover .edit-icon {
-    color: #c8102e;
-    opacity: 1;
-    transform: scale(1.15);
-}
-
-.action-icon.complete-icon-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 4px;
-    transition: color 0.2s;
-}
-
-.action-icon.complete-icon-btn .material-icons {
-    color: #757575;           /* gray default */
-    font-size: 24px;          /* match pencil size */
-}
-
-.action-icon.complete-icon-btn:hover .material-icons {
-    color: #c8102e;           /* red on hover */
-}
-
-/* Optional: subtle scale on hover like pencil */
-.action-icon.complete-icon-btn:hover {
-    transform: scale(1.1);
-}
-
-/* Show only in respective modes */
-.edit-mode-active .edit-icon-btn,
-.delete-mode-active .delete-icon-btn {
-    display: flex !important;
-}
-
-/* Style for Cancel Edit button */
-.cancel-edit {
-    background: #6b7280 !important;
-    border: 2px solid #4b5563 !important;
-}
-
-.cancel-edit:hover {
-    background: #4b5563 !important;
-}
-
-/* Placeholder */
-.content-placeholder {
-    background: white;
-    padding: 40px;
-    border-radius: 10px;
-    text-align: center;
-    color: #6b7280;
-    min-height: 200px;
-}
-
-/* Password field with inline eye icon */
-.password-wrapper {
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.password-wrapper input {
-    width: 100%;
-    padding: 12px 48px 12px 12px;  /* right padding for eye */
-    box-sizing: border-box;
-}
-
-.toggle-password {
-    position: absolute;
-    right: 12px;
-    top: 30%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6b7280;               /* gray at rest */
-    transition: none;             /* remove color transition */
-}
-
-/* Optional: subtle background on hover instead of color change */
-.toggle-password:hover,
-.toggle-password:focus {
-    background: rgba(200, 16, 46, 0.08);  /* very light red tint – optional */
-    outline: none;
-}
-
-.toggle-password .material-icons {
-    font-size: 1.4rem;
-}
-
-/* add confirmation */
-
-.confirmation-box {
-    background: white;
-    padding: 32px;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-    max-width: 500px;
-    margin: 32px auto;
-    text-align: center;
-}
-
-.confirmation-box h2 {
-    margin-bottom: 24px;
-    color: #c8102e;
-}
-
-.cancel-link {
-    display: inline-block;
-    margin-left: 16px;
-    color: #6b7280;
-    text-decoration: none;
-    padding: 12px 24px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-}
-
-.cancel-link:hover {
-    background: #f3f4f6;
-}
-
-/* Modal overlay (full screen, darkened background) */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-/* Active modal */
-.modal-overlay.active {
-    display: flex !important;
-}
-
-/* Modal box (centered white panel) */
-.modal-box {
-    background: white;
-    padding: 32px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 480px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-    position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.modal-box label {
-    padding: 8px 12px;
-    border-radius: 6px;
-    transition: background 0.2s;
-}
-
-.modal-box label:hover {
-    background: #f0f0f0;
-}
-
-.modal-box input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    accent-color: #c8102e; /* your theme color */
-    cursor: pointer;
-}
-
-/* Close button */
-.close-modal {
-    position: absolute;
-    top: 12px;
-    right: 20px;
-    font-size: 2rem;
-    cursor: pointer;
-    color: #6b7280;
-}
-
-.close-modal:hover {
-    color: #c8102e;
-}
-
-/* Modal action buttons row */
-.modal-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 24px;
-    justify-content: flex-end;
-}
-
-
-
-.modal-actions button {
-    flex: 1;
-    max-width: 140px;
-    padding: 12px 20px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 500;
-    height: 48px;
-    line-height: 1;
-    box-sizing: border-box;
-    color: white;
-}
-
-.modal-actions button[type="submit"] {
-    background: #c8102e;
-}
-
-.modal-actions button:not([type="submit"]) {
-    background: #757575;
-}
-
-.danger-btn {
-    background: #dc2626;
-    color: white;
-    border: none;
-}
-
-.danger-btn:hover {
-    background: #b91c1c;
-}
-
-/* Prevent scroll when modal open */
-body.modal-open {
-    overflow: hidden;
-}
-
-.fiscal-filter {
-    margin-right: 16px;          /* space before action buttons */
-}
-
-.fiscal-filter select {
-    padding: 12px 40px 12px 16px;
-    font-size: 1rem;
-    font-weight: 500;
-    min-width: 220px;
-    background: #c8102e;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 16px center;
-    background-size: 12px;
-}
-
-.fiscal-filter select:hover {
-    background-color: #a00d24;   /* darker red hover – same as button */
-}
-
-.fiscal-filter select:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.3);
-}
-
-/* view table */
-
-.view-table table {
-    width: 100%;
-    max-width: 800px;
-    margin: 32px auto;
-    border-collapse: collapse;
-    background: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.view-table th, .view-table td {
-    padding: 16px;
-    text-align: left;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.view-table th {
-    background: #c8102e;
-    color: white;
-    font-weight: 600;
-    width: 35%;
-}
-
-.view-table td {
-    background: #f9fafb;
-}
-
-.view-actions {
-    text-align: center;
-    margin-top: 32px;
-}
-
-.back-btn {
-    display: inline-block;
-    padding: 12px 32px;
-    background: #6b7280;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-}
-
-.back-btn:hover {
-    background: #4b5563;
-}

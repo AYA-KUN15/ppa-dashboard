@@ -17,7 +17,10 @@ if (!$id || !is_numeric($id)) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT program_id, project_title, date_of_implementation, status
+        SELECT program_id, project_title, date_of_implementation,
+               type_of_extension_service_agenda, sdg_goals,
+               offices_involved, programs_involved, beneficiaries_json,
+               status
         FROM project_entries
         WHERE id = ?
     ");
@@ -44,6 +47,15 @@ try {
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
+
+$beneficiaries = [];
+if (!empty($project['beneficiaries_json'])) {
+    $decoded = json_decode($project['beneficiaries_json'], true);
+    if (is_array($decoded)) {
+        $beneficiaries = $decoded;
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -64,7 +76,7 @@ try {
         </div>
         <nav class="main-nav">
             <a href="../index.php" class="nav-button">Home</a>
-            <a href="view.php?id=<?= $project['program_id'] ?>" class="nav-button">Back to Program</a>
+            <a href="view.php?id=<?= htmlspecialchars($project['program_id']) ?>" class="nav-button">Program</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>
@@ -77,10 +89,21 @@ try {
 
             <div class="program-details">
                 <p><strong>Parent Program:</strong> <?= htmlspecialchars($program['title'] ?? 'Unknown') ?></p>
+                <p><strong>Project Title:</strong> <?= htmlspecialchars($project['project_title']) ?></p>
                 <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($project['date_of_implementation']) ?></p>
+                <p><strong>Type of Extension Service Agenda:</strong> <?= htmlspecialchars($project['type_of_extension_service_agenda'] ?? 'N/A') ?></p>
+                <p><strong>SDG Goals:</strong> <?= htmlspecialchars($project['sdg_goals'] ?? 'N/A') ?></p>
+                <p><strong>Offices Involved:</strong> <?= htmlspecialchars($project['offices_involved'] ?? 'N/A') ?></p>
+                <p><strong>Programs Involved:</strong> <?= htmlspecialchars($project['programs_involved'] ?? 'N/A') ?></p>
+                <p><strong>Beneficiaries:</strong> <span id="view-beneficiaries"></span></p>
                 <p><strong>Status:</strong> 
-                    <span style="color: <?= $project['status'] === 'completed' ? '#10b981' : '#c8102e' ?>; font-weight: 600;">
-                        <?= htmlspecialchars(ucfirst($project['status'] ?? 'Active')) ?>
+                    <?php
+                    $status = strtolower($project['status'] ?? 'active');
+                    $displayStatus = ucfirst($status);
+                    $color = ($status === 'completed' || $status === 'archived') ? '#10b981' : '#c8102e';
+                    ?>
+                    <span style="color: <?= $color ?>; font-weight: 600;">
+                        <?= htmlspecialchars($displayStatus) ?>
                     </span>
                 </p>
             </div>
@@ -94,14 +117,14 @@ try {
                     <div class="quarter-scroll-container">
                         <div class="quarter-buttons">
                             <?php foreach ($activities as $activity): ?>
-                                <div class="quarter-item <?= $activity['status'] === 'completed' ? 'completed' : '' ?>">
-                                    <button class="quarter-btn <?= $activity['status'] === 'completed' ? 'completed-project' : '' ?>" 
+                                <div class="quarter-item <?= ($activity['status'] !== 'active') ? 'completed' : '' ?>">
+                                    <button class="quarter-btn <?= ($activity['status'] !== 'active') ? 'completed-project' : '' ?>" 
                                             onclick="window.location.href='view_activity.php?id=<?= $activity['id'] ?>'">
                                         <span class="quarter-btn-title"><?= htmlspecialchars($activity['activity_name']) ?></span>
                                         <span class="quarter-btn-subtitle">
                                             <?= htmlspecialchars($activity['date_of_implementation']) ?>
-                                            <?php if ($activity['status'] === 'completed'): ?>
-                                                <span style="color: #10b981; font-weight: 600;"> (Completed)</span>
+                                            <?php if ($activity['status'] !== 'active'): ?>
+                                                <span style="color: #10b981; font-weight: 600;"> (<?= ucfirst($activity['status']) ?>)</span>
                                             <?php endif; ?>
                                         </span>
                                     </button>
@@ -112,7 +135,7 @@ try {
                                         <span class="material-icons">edit</span>
                                     </button>
 
-                                    <?php if ($activity['status'] !== 'completed'): ?>
+                                    <?php if ($activity['status'] === 'active'): ?>
                                         <button class="action-icon complete-icon-btn" 
                                                 data-id="<?= $activity['id'] ?>"
                                                 data-mode="activity"
@@ -132,38 +155,81 @@ try {
     </main>
 
     <script>
-document.querySelectorAll('.complete-icon-btn').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-
-        if (confirm(`Mark this activity as completed? It will move to the archive view.`)) {
-            fetch('complete.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `id=${encodeURIComponent(this.dataset.id)}&mode=${encodeURIComponent(this.dataset.mode)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const card = this.closest('.quarter-item');
-                    if (card) {
-                        card.querySelector('.quarter-btn').classList.add('completed-project');
-                        card.classList.add('completed');
-                        this.remove(); // hide complete button after success
-                    }
-                    location.reload();
+    // Beneficiaries summary
+    const beneficiariesJson = <?= json_encode($beneficiaries) ?>;
+    const beneficiariesSpan = document.getElementById('view-beneficiaries');
+    if (beneficiariesSpan) {
+        let summary = '';
+        let total = 0;
+        if (Array.isArray(beneficiariesJson)) {
+    beneficiariesJson.forEach(b => {
+            const typeText = b.type?.trim() || '';
+            const male = parseInt(b.male) || 0;
+            const female = parseInt(b.female) || 0;
+            if (typeText) {
+                if (male > 0 || female > 0) {
+                    summary += `${typeText}: ${male} male, ${female} female | `;
                 } else {
-                    alert('Failed: ' + (data.message || 'Unknown error'));
+                    summary += `${typeText} | `;
                 }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Network error.');
-            });
-        }
+                total += male + female;
+            }
+                })
+}
+        };
+        summary += total > 0 ? `Total: ${total}` : '';
+        beneficiariesSpan.textContent = summary.trim() || 'None added';
+    } else {
+        console.warn('Beneficiaries span not found');
+    }
+
+    // Complete button handler
+    document.querySelectorAll('.complete-icon-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+
+            const mode = this.dataset.mode || 'project';
+            const entity = mode === 'project' ? 'project' : 'activity';
+
+            if (confirm(`Mark this ${entity} as completed? It will move to the archive view.`)) {
+                btn.disabled = true;
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<span class="material-icons">hourglass_empty</span>';
+
+                fetch('complete.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `id=${encodeURIComponent(this.dataset.id)}&mode=${encodeURIComponent(mode)}`
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        const card = this.closest('.quarter-item');
+                        if (card) {
+                            card.querySelector('.quarter-btn').classList.add('completed-project');
+                            card.classList.add('completed');
+                            this.remove();
+                        }
+                        location.reload();
+                    } else {
+                        alert('Failed: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(err => {
+                    console.error('Complete request failed:', err);
+                    alert('Network or server error: ' + err.message);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalIcon;
+                });
+            }
+        });
     });
-});
-</script>
+    </script>
 
 </body>
 </html>

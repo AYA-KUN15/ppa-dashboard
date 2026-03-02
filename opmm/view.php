@@ -90,8 +90,13 @@ try {
                 <p><strong>Total Cost:</strong> ₱<?= number_format($program['total_cost'] ?? 0, 2) ?></p>
                 <p><strong>Source of Fund:</strong> <?= htmlspecialchars($program['source_of_fund'] ?: 'N/A') ?></p>
                 <p><strong>Status:</strong> 
-                    <span style="color: <?= $program['status'] === 'completed' ? '#10b981' : '#c8102e' ?>; font-weight: 600;">
-                        <?= htmlspecialchars(ucfirst($program['status'] ?? 'Active')) ?>
+                    <?php
+                    $status = strtolower($program['status'] ?? 'active');
+                    $displayStatus = ucfirst($status);
+                    $color = ($status === 'completed' || $status === 'archived') ? '#10b981' : '#c8102e'; // red for active
+                    ?>
+                    <span style="color: <?= $color ?>; font-weight: 600;">
+                        <?= htmlspecialchars($displayStatus) ?>
                     </span>
                 </p>
             </div>
@@ -105,14 +110,14 @@ try {
                     <div class="quarter-scroll-container">
                         <div class="quarter-buttons">
                             <?php foreach ($projects as $project): ?>
-                                <div class="quarter-item <?= $project['status'] === 'completed' ? 'completed' : '' ?>">
-                                    <button class="quarter-btn <?= $project['status'] === 'completed' ? 'completed-project' : '' ?>" 
+                                <div class="quarter-item <?= ($project['status'] !== 'active') ? 'completed' : '' ?>">
+                                    <button class="quarter-btn <?= ($project['status'] !== 'active') ? 'completed-project' : '' ?>" 
                                             onclick="window.location.href='view_project.php?id=<?= $project['id'] ?>'">
                                         <span class="quarter-btn-title"><?= htmlspecialchars($project['project_title']) ?></span>
                                         <span class="quarter-btn-subtitle">
                                             <?= htmlspecialchars($project['date_of_implementation']) ?>
-                                            <?php if ($project['status'] === 'completed'): ?>
-                                                <span style="color: #10b981; font-weight: 600;"> (Completed)</span>
+                                            <?php if ($project['status'] !== 'active'): ?>
+                                                <span style="color: #10b981; font-weight: 600;"> (<?= ucfirst($project['status']) ?>)</span>
                                             <?php endif; ?>
                                         </span>
                                     </button>
@@ -123,7 +128,7 @@ try {
                                         <span class="material-icons">edit</span>
                                     </button>
 
-                                    <?php if ($project['status'] !== 'completed'): ?>
+                                    <?php if ($project['status'] === 'active'): ?>
                                         <button class="action-icon complete-icon-btn" 
                                                 data-id="<?= $project['id'] ?>"
                                                 data-mode="project"
@@ -144,16 +149,72 @@ try {
     </main>
 
     <script>
-    // Beneficiaries summary (same as before)
+    // Beneficiaries summary
     const beneficiariesJson = <?= json_encode(json_decode($program['beneficiaries_json'] ?? '[]', true)) ?>;
     let summary = '';
     let total = 0;
     beneficiariesJson.forEach(b => {
-        summary += `${b.type}: ${b.male} male, ${b.female} female | `;
-        total += b.male + b.female;
+        const typeText = b.type?.trim() || '';
+        const male = parseInt(b.male) || 0;
+        const female = parseInt(b.female) || 0;
+        if (typeText) {
+            if (male > 0 || female > 0) {
+                summary += `${typeText}: ${male} male, ${female} female | `;
+            } else {
+                summary += `${typeText} | `;
+            }
+            total += male + female;
+        }
     });
-    summary += `Total: ${total}`;
-    document.getElementById('view-beneficiaries').textContent = summary || 'None added';
+    summary += total > 0 ? `Total: ${total}` : '';
+    document.getElementById('view-beneficiaries').textContent = summary.trim() || 'None added';
+
+    // Complete button handler
+    document.querySelectorAll('.complete-icon-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+
+            const mode = this.dataset.mode || 'project';
+            const entity = mode === 'project' ? 'project' : 'activity';
+
+            if (confirm(`Mark this ${entity} as completed? It will move to the archive view.`)) {
+                btn.disabled = true;
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<span class="material-icons">hourglass_empty</span>';
+
+                fetch('complete.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `id=${encodeURIComponent(this.dataset.id)}&mode=${encodeURIComponent(mode)}`
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        const card = this.closest('.quarter-item');
+                        if (card) {
+                            card.querySelector('.quarter-btn').classList.add('completed-project');
+                            card.classList.add('completed');
+                            this.remove();
+                        }
+                        location.reload();
+                    } else {
+                        alert('Failed: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(err => {
+                    console.error('Complete request failed:', err);
+                    alert('Network or server error: ' + err.message);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalIcon;
+                });
+            }
+        });
+    });
     </script>
 
 </body>
