@@ -110,14 +110,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices']) ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs']) ?></p>
                 <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($d['partners']) ?></p>
-                <p><strong>Beneficiaries:</strong> <span id="confirm-beneficiaries"></span></p>
+                <p><strong>Beneficiaries:</strong> 
+                    <?php
+                    $benefs = json_decode($d['beneficiaries_json'] ?? '[]', true);
+                    if (is_array($benefs) && !empty($benefs)) {
+                        $parts = [];
+                        $total = 0;
+                        foreach ($benefs as $b) {
+                            $type = htmlspecialchars($b['type'] ?? 'Unnamed');
+                            $m = (int)($b['male'] ?? 0);
+                            $f = (int)($b['female'] ?? 0);
+                            $line = $type;
+                            if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
+                            $parts[] = $line;
+                            $total += $m + $f;
+                        }
+                        echo implode(' | ', $parts);
+                        if ($total > 0) echo " | Total: $total";
+                    } else {
+                        echo 'None';
+                    }
+                    ?>
+                </p>
                 <p><strong>Total Cost:</strong> ₱<?= number_format($d['total_cost'], 2) ?></p>
                 <p><strong>Source of Fund:</strong> <?= htmlspecialchars($d['source_fund']) ?></p>
 
-                <form method="POST">
-                    <button type="submit" name="confirm">Confirm & Save</button>
+                <div style="margin-top: 24px;">
+                    <form method="POST" style="display:inline;">
+                        <button type="submit" name="confirm">Confirm & Save</button>
+                    </form>
                     <a href="add.php" class="cancel-link">Cancel</a>
-                </form>
+                </div>
             </div>
         <?php else: ?>
             <form method="POST">
@@ -158,16 +181,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label for="partner_agencies">Partner Agencies *</label>
                 <input type="text" id="partner_agencies" name="partner_agencies" required>
 
+                <label>Source of Fund * (select all that apply)</label>
+                <button type="button" onclick="openModal('source-modal')">Select Sources</button>
+                <div id="selected-source" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
+                <input type="hidden" name="source_of_fund" id="source-hidden">
+
                 <label for="total_cost">Total Cost *</label>
                 <input type="number" id="total_cost" name="total_cost" step="0.01" min="0" required>
-
-                <label for="source_of_fund">Source of Fund *</label>
-                <select id="source_of_fund" name="source_of_fund" required>
-                    <option value="">Select Source</option>
-                    <option value="MDS">MDS</option>
-                    <option value="STF">STF</option>
-                    <option value="Others">Others</option>
-                </select>
 
                 <button type="submit">Review & Add</button>
             </form>
@@ -322,6 +342,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
+    <!-- Source of Fund Modal -->
+    <div id="source-modal" class="modal-overlay">
+        <div class="modal-box">
+            <span class="close-modal" onclick="closeModal('source-modal')">×</span>
+            <h2>Select Source of Fund</h2>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        MDS
+                        <input type="checkbox" value="MDS">
+                    </label>
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        STF
+                        <input type="checkbox" value="STF">
+                    </label>
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        Others
+                        <input type="checkbox" value="Others">
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="saveModalSelections('source')">Save</button>
+                <button onclick="closeModal('source-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
@@ -338,7 +386,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Save
                 </button>
                 <button onclick="closeModal('beneficiaries-modal')" 
-                        style="padding: 12px 24px; background: #c8102e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
                     Cancel
                 </button>
             </div>
@@ -359,12 +407,16 @@ function closeModal(modalId) {
 function saveModalSelections(type) {
     const modal = document.getElementById(type + '-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
-    const values = Array.from(checkboxes).map(cb => cb.value);
+    const values = Array.from(checkboxes).map(cb => cb.value.trim());
     const hidden = document.getElementById(type + '-hidden');
-    const display = document.getElementById('selected-' + type + 's');
+    const display = document.getElementById('selected-' + type);
 
-    hidden.value = values.join(', ');
-    display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+    if (hidden) {
+        hidden.value = values.join(', ');
+    }
+    if (display) {
+        display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+    }
     closeModal(type + '-modal');
 }
 

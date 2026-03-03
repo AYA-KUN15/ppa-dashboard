@@ -117,8 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php endif; ?>
 
-        <div id="confirmation-box" class="confirmation-box" style="<?= $show_confirmation ? '' : 'display:none;' ?>">
-            <?php if ($show_confirmation): $d = $_SESSION['pending_project']; ?>
+        <?php if ($show_confirmation): $d = $_SESSION['pending_project']; ?>
+            <div id="confirmation-box" class="confirmation-box">
                 <h2>Confirm Project Details</h2>
                 <p><strong>Project Title:</strong> <?= htmlspecialchars($d['project_title']) ?></p>
                 <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($d['date_of_implementation']) ?></p>
@@ -126,7 +126,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($d['sdg_goals'] ?: 'None') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices_involved'] ?: 'None') ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs_involved'] ?: 'None') ?></p>
-                <p><strong>Beneficiaries:</strong> <?= htmlspecialchars($d['beneficiaries_json'] !== '[]' ? $d['beneficiaries_json'] : 'None') ?></p>
+                <p><strong>Beneficiaries:</strong> 
+                    <?php
+                    $benefs = json_decode($d['beneficiaries_json'] ?? '[]', true);
+                    if (is_array($benefs) && !empty($benefs)) {
+                        $parts = [];
+                        $total = 0;
+                        foreach ($benefs as $b) {
+                            $type = htmlspecialchars($b['type'] ?? 'Unnamed');
+                            $m = (int)($b['male'] ?? 0);
+                            $f = (int)($b['female'] ?? 0);
+                            $line = $type;
+                            if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
+                            $parts[] = $line;
+                            $total += $m + $f;
+                        }
+                        echo implode(' | ', $parts);
+                        if ($total > 0) echo " | Total: $total";
+                    } else {
+                        echo 'None';
+                    }
+                    ?>
+                </p>
 
                 <div style="margin-top: 24px;">
                     <form method="POST" style="display:inline;">
@@ -134,10 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </form>
                     <button type="button" onclick="cancelConfirmation()" class="cancel-link">Cancel</button>
                 </div>
-            <?php endif; ?>
-        </div>
+            </div>
+        <?php endif; ?>
 
-        <div id="add-form" style="<?= $show_confirmation ? 'display:none;' : 'display:block;' ?>">
+        <div id="add-form" style="<?= $show_confirmation ? 'display:none;' : '' ?>">
             <form method="POST">
                 <input type="hidden" name="program_id" value="<?= htmlspecialchars($program_id) ?>">
 
@@ -341,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <!-- Beneficiaries Modal – selection only, copied from program style -->
+    <!-- Beneficiaries Modal -->
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
@@ -395,79 +416,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (hidden) {
             hidden.value = values.join(', ');
-        } else {
-            console.error(`Hidden input #${type}-hidden not found`);
         }
 
         if (display) {
             display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
-        } else {
-            console.error(`Display div #${displayId || 'unknown'} not found for type ${type}`);
         }
 
         closeModal(type + '-modal');
     }
 
-    // Beneficiaries selection modal
     let beneficiariesData = [];
 
     function loadBeneficiaries() {
-    const rowsDiv = document.getElementById('beneficiary-rows');
-    rowsDiv.innerHTML = '';
+        const rowsDiv = document.getElementById('beneficiary-rows');
+        rowsDiv.innerHTML = '';
 
-    // Get pre-filled data from parent
-    const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-    let entries = [];
+        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+        let entries = [];
 
-    try {
-        entries = JSON.parse(parentJson);
-        // Ensure every entry has male/female (default 0 if missing)
-        entries = entries.map(e => ({
-            type: e.type || 'Unnamed Type',
-            male: Number(e.male || 0),
-            female: Number(e.female || 0)
-        }));
-    } catch (e) {
-        console.log('Parent beneficiaries not valid JSON, treating as comma-separated types:', parentJson);
-        // Fallback: plain text → types only, male/female = 0
-        entries = parentJson.split(',').map(item => ({
-            type: item.trim(),
-            male: 0,
-            female: 0
-        })).filter(e => e.type !== '');
+        try {
+            entries = JSON.parse(parentJson);
+            entries = entries.map(e => ({
+                type: e.type || 'Unnamed Type',
+                male: Number(e.male || 0),
+                female: Number(e.female || 0)
+            }));
+        } catch (e) {
+            entries = parentJson.split(',').map(item => ({
+                type: item.trim(),
+                male: 0,
+                female: 0
+            })).filter(e => e.type !== '');
+        }
+
+        if (entries.length === 0) {
+            rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in parent program.</p>';
+            return;
+        }
+
+        beneficiariesData = entries.map((e, i) => ({ ...e, index: i, selected: true }));
+
+        entries.forEach((entry, index) => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.gap = '16px';
+            row.style.marginBottom = '12px';
+            row.style.padding = '12px';
+            row.style.border = '1px solid #d1d5db';
+            row.style.borderRadius = '6px';
+
+            row.innerHTML = `
+                <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
+
+                <div style="flex: 1;">
+                    <strong>${entry.type}</strong><br>
+                    <span style="color:#6b7280;">
+                        Male: ${entry.male} | Female: ${entry.female}
+                    </span>
+                </div>
+            `;
+
+            rowsDiv.appendChild(row);
+        });
     }
-
-    if (entries.length === 0) {
-        rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in the parent.</p>';
-        return;
-    }
-
-    beneficiariesData = entries.map((e, i) => ({ ...e, index: i, selected: true }));
-
-    entries.forEach((entry, index) => {
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '16px';
-        row.style.marginBottom = '12px';
-        row.style.padding = '12px';
-        row.style.border = '1px solid #d1d5db';
-        row.style.borderRadius = '6px';
-
-        row.innerHTML = `
-            <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
-
-            <div style="flex: 1;">
-                <strong>${entry.type}</strong><br>
-                <span style="color:#6b7280;">
-                    Male: ${entry.male} | Female: ${entry.female}
-                </span>
-            </div>
-        `;
-
-        rowsDiv.appendChild(row);
-    });
-}
 
     function toggleBeneficiary(index, checked) {
         if (beneficiariesData[index]) {
@@ -476,9 +488,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function saveBeneficiaries() {
-        const selected = beneficiariesData
-            .filter(b => b.selected)
-            .map(b => ({ type: b.type, male: b.male, female: b.female }));
+        const selected = beneficiariesData.filter(b => b.selected).map(b => ({
+            type: b.type,
+            male: b.male,
+            female: b.female
+        }));
 
         const hidden = document.getElementById('beneficiaries-hidden');
         if (hidden) {
@@ -488,7 +502,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const preview = document.getElementById('selected-beneficiaries');
         if (preview) {
             const count = selected.length;
-            preview.textContent = count > 0 ? `${count} beneficiary type(s) selected` : 'None selected';
+            preview.textContent = count > 0 ? `${count} type(s) selected` : 'None selected';
         }
 
         closeModal('beneficiaries-modal');

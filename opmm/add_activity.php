@@ -27,6 +27,23 @@ if (!$parent) {
     die("Parent project not found.");
 }
 
+// Extract parent month and year
+$parentDateParts = explode(' ', trim($parent['date_of_implementation']));
+$parentMonth = $parentDateParts[0] ?? '';
+$parentYear  = (int)($parentDateParts[1] ?? date('Y'));
+
+// Determine max days in month
+$daysInMonth = 31;
+if (in_array($parentMonth, ['April', 'June', 'September', 'November'])) {
+    $daysInMonth = 30;
+} elseif ($parentMonth === 'February') {
+    if (($parentYear % 4 === 0 && $parentYear % 100 !== 0) || ($parentYear % 400 === 0)) {
+        $daysInMonth = 29;
+    } else {
+        $daysInMonth = 28;
+    }
+}
+
 $error = '';
 $show_confirmation = false;
 
@@ -56,20 +73,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         $activity_name = trim($_POST['activity_name'] ?? '');
-        $impl_month = trim($_POST['impl_month'] ?? '');
-        $impl_year = trim($_POST['impl_year'] ?? '');
-        $type_agenda = trim($_POST['type_agenda'] ?? '');
-        $sdg_goals = trim($_POST['sdg_goals'] ?? '');
-        $offices = trim($_POST['offices'] ?? '');
-        $programs = trim($_POST['programs'] ?? '');
+        $impl_day      = (int)($_POST['impl_day'] ?? 0);
+        $type_agenda   = trim($_POST['type_agenda'] ?? '');
+        $sdg_goals     = trim($_POST['sdg_goals'] ?? '');
+        $offices       = trim($_POST['offices'] ?? '');
+        $programs      = trim($_POST['programs'] ?? '');
         $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
-        if (empty($activity_name) || empty($impl_month) || empty($impl_year) ||
+        if (empty($activity_name) || $impl_day < 1 || $impl_day > $daysInMonth ||
             empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
             empty($programs) || $beneficiaries === '[]') {
-            $error = 'Please fill all required fields.';
+            $error = 'Please fill all required fields. Day must be between 1 and ' . $daysInMonth . ' for ' . $parentMonth . '.';
         } else {
-            $date_of_implementation = "$impl_month $impl_year";
+            $date_of_implementation = "$parentMonth $impl_day $parentYear";
 
             $_SESSION['pending_activity'] = [
                 'project_id' => $project_id,
@@ -100,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <header class="top-bar">
         <div class="logo-container">
-            <img src="../assets/bsu-logo.jpg" alt="BatStateU Logo" class="logo">
+            <img src="../assets/bsu-logo.jpg" alt="BSU Logo" class="logo">
             <span class="logo-text">PPA Dashboard</span>
         </div>
         <nav class="main-nav">
@@ -117,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php endif; ?>
 
-        <div id="confirmation-box" class="confirmation-box" style="<?= $show_confirmation ? '' : 'display:none;' ?>">
-            <?php if ($show_confirmation): $d = $_SESSION['pending_activity']; ?>
+        <?php if ($show_confirmation): $d = $_SESSION['pending_activity']; ?>
+            <div id="confirmation-box" class="confirmation-box">
                 <h2>Confirm Activity Details</h2>
                 <p><strong>Activity Name:</strong> <?= htmlspecialchars($d['activity_name']) ?></p>
                 <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($d['date_of_implementation']) ?></p>
@@ -126,18 +142,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($d['sdg_goals'] ?: 'None') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices_involved'] ?: 'None') ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs_involved'] ?: 'None') ?></p>
-                <p><strong>Beneficiaries:</strong> <?= htmlspecialchars($d['beneficiaries_json'] !== '[]' ? $d['beneficiaries_json'] : 'None') ?></p>
+                <p><strong>Beneficiaries:</strong> 
+                    <?php
+                    $benefs = json_decode($d['beneficiaries_json'] ?? '[]', true);
+                    if (is_array($benefs) && !empty($benefs)) {
+                        $parts = [];
+                        $total = 0;
+                        foreach ($benefs as $b) {
+                            $type = htmlspecialchars($b['type'] ?? 'Unnamed');
+                            $m = (int)($b['male'] ?? 0);
+                            $f = (int)($b['female'] ?? 0);
+                            $line = $type;
+                            if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
+                            $parts[] = $line;
+                            $total += $m + $f;
+                        }
+                        echo implode(' | ', $parts);
+                        if ($total > 0) echo " | Total: $total";
+                    } else {
+                        echo 'None';
+                    }
+                    ?>
+                </p>
 
                 <div style="margin-top: 24px;">
                     <form method="POST" style="display:inline;">
                         <button type="submit" name="confirm">Confirm & Save</button>
                     </form>
-                    <button type="button" onclick="cancelConfirmation()" class="cancel-link">Cancel</button>
+                    <button type="button" onclick="document.getElementById('confirmation-box').style.display='none'; document.getElementById('add-form').style.display='block';" class="cancel-link">Cancel</button>
                 </div>
-            <?php endif; ?>
-        </div>
+            </div>
+        <?php endif; ?>
 
-        <div id="add-form" style="<?= $show_confirmation ? 'display:none;' : 'display:block;' ?>">
+        <div id="add-form" style="<?= $show_confirmation ? 'display:none;' : '' ?>">
             <form method="POST">
                 <input type="hidden" name="project_id" value="<?= htmlspecialchars($project_id) ?>">
 
@@ -178,28 +215,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <label>Date of Implementation *</label>
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                    <select name="impl_month" required style="flex: 1; min-width: 160px;">
-                        <option value="">Select Month</option>
-                        <?php
-                        $months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                        $parentMonth = explode(' ', $parent['date_of_implementation'])[0] ?? '';
-                        foreach ($months as $m) {
-                            $selected = ($m === ($_POST['impl_month'] ?? '')) ? 'selected' : '';
-                            echo "<option value=\"$m\" $selected>$m</option>";
-                        }
-                        ?>
-                    </select>
+                    <input type="text" value="<?= htmlspecialchars($parentMonth) ?>" readonly 
+                           style="flex: 1; min-width: 160px; background: #f0f0f0; cursor: not-allowed; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
 
-                    <select name="impl_year" required style="flex: 1; min-width: 120px;">
-                        <option value="">Select Year</option>
-                        <?php
-                        $year = (int) date('Y', strtotime($parent['date_of_implementation']));
-                        for ($y = $year; $y <= $year + 5; $y++) {
-                            $selected = ($y == ($_POST['impl_year'] ?? '')) ? 'selected' : '';
-                            echo "<option value=\"$y\" $selected>$y</option>";
-                        }
-                        ?>
-                    </select>
+                    <input type="number" name="impl_day" min="1" max="<?= $daysInMonth ?>" 
+                           placeholder="Day (1–<?= $daysInMonth ?>)" value="<?= htmlspecialchars($_POST['impl_day'] ?? '') ?>" required 
+                           style="flex: 1; min-width: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                 </div>
 
                 <button type="submit">Review & Add</button>
@@ -333,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <!-- Beneficiaries Modal – selection only from parent -->
+    <!-- Beneficiaries Modal -->
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
@@ -363,11 +384,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.body.classList.remove('modal-open');
     }
 
-    function cancelConfirmation() {
-        document.getElementById('confirmation-box').style.display = 'none';
-        document.getElementById('add-form').style.display = 'block';
-    }
-
     function saveModalSelections(type) {
         const modal = document.getElementById(type + '-modal');
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
@@ -387,79 +403,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (hidden) {
             hidden.value = values.join(', ');
-        } else {
-            console.error(`Hidden input #${type}-hidden not found`);
         }
 
         if (display) {
             display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
-        } else {
-            console.error(`Display div #${displayId || 'unknown'} not found for type ${type}`);
         }
 
         closeModal(type + '-modal');
     }
 
-    // Beneficiaries selection modal
     let beneficiariesData = [];
 
     function loadBeneficiaries() {
-    const rowsDiv = document.getElementById('beneficiary-rows');
-    rowsDiv.innerHTML = '';
+        const rowsDiv = document.getElementById('beneficiary-rows');
+        rowsDiv.innerHTML = '';
 
-    // Get pre-filled data from parent
-    const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-    let entries = [];
+        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+        let entries = [];
 
-    try {
-        entries = JSON.parse(parentJson);
-        // Ensure every entry has male/female (default 0 if missing)
-        entries = entries.map(e => ({
-            type: e.type || 'Unnamed Type',
-            male: Number(e.male || 0),
-            female: Number(e.female || 0)
-        }));
-    } catch (e) {
-        console.log('Parent beneficiaries not valid JSON, treating as comma-separated types:', parentJson);
-        // Fallback: plain text → types only, male/female = 0
-        entries = parentJson.split(',').map(item => ({
-            type: item.trim(),
-            male: 0,
-            female: 0
-        })).filter(e => e.type !== '');
+        try {
+            entries = JSON.parse(parentJson);
+            entries = entries.map(e => ({
+                type: e.type || 'Unnamed Type',
+                male: Number(e.male || 0),
+                female: Number(e.female || 0)
+            }));
+        } catch (e) {
+            entries = parentJson.split(',').map(item => ({
+                type: item.trim(),
+                male: 0,
+                female: 0
+            })).filter(e => e.type !== '');
+        }
+
+        if (entries.length === 0) {
+            rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in parent project.</p>';
+            return;
+        }
+
+        beneficiariesData = entries.map((e, i) => ({ ...e, index: i, selected: true }));
+
+        entries.forEach((entry, index) => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.gap = '16px';
+            row.style.marginBottom = '12px';
+            row.style.padding = '12px';
+            row.style.border = '1px solid #d1d5db';
+            row.style.borderRadius = '6px';
+
+            row.innerHTML = `
+                <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
+
+                <div style="flex: 1;">
+                    <strong>${entry.type}</strong><br>
+                    <span style="color:#6b7280;">
+                        Male: ${entry.male} | Female: ${entry.female}
+                    </span>
+                </div>
+            `;
+
+            rowsDiv.appendChild(row);
+        });
     }
-
-    if (entries.length === 0) {
-        rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in the parent.</p>';
-        return;
-    }
-
-    beneficiariesData = entries.map((e, i) => ({ ...e, index: i, selected: true }));
-
-    entries.forEach((entry, index) => {
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '16px';
-        row.style.marginBottom = '12px';
-        row.style.padding = '12px';
-        row.style.border = '1px solid #d1d5db';
-        row.style.borderRadius = '6px';
-
-        row.innerHTML = `
-            <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
-
-            <div style="flex: 1;">
-                <strong>${entry.type}</strong><br>
-                <span style="color:#6b7280;">
-                    Male: ${entry.male} | Female: ${entry.female}
-                </span>
-            </div>
-        `;
-
-        rowsDiv.appendChild(row);
-    });
-}
 
     function toggleBeneficiary(index, checked) {
         if (beneficiariesData[index]) {
@@ -468,7 +475,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function saveBeneficiaries() {
-        const selected = beneficiariesData.filter(b => b.selected === true);
+        const selected = beneficiariesData.filter(b => b.selected).map(b => ({
+            type: b.type,
+            male: b.male,
+            female: b.female
+        }));
+
         const hidden = document.getElementById('beneficiaries-hidden');
         if (hidden) {
             hidden.value = JSON.stringify(selected);
@@ -477,7 +489,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const preview = document.getElementById('selected-beneficiaries');
         if (preview) {
             const count = selected.length;
-            preview.textContent = count > 0 ? `${count} beneficiary type(s) selected` : 'None selected';
+            preview.textContent = count > 0 ? `${count} type(s) selected` : 'None selected';
         }
 
         closeModal('beneficiaries-modal');
