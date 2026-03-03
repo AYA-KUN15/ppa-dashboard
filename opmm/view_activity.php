@@ -182,59 +182,53 @@ try {
     </main>
 
     <script>
-    // Beneficiaries summary - handles both JSON and plain text
-const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
+    // Beneficiaries summary – from current activity
+const rawJson = <?= json_encode($activity['beneficiaries_json'] ?? '[]') ?>;
+let beneficiariesJson = [];
+
+try {
+    beneficiariesJson = JSON.parse(rawJson);
+} catch (e) {
+    console.error('Failed to parse beneficiaries_json in view_activity:', e);
+    console.log('Raw value was:', rawJson);
+    beneficiariesJson = [];
+}
 
 const beneficiariesSpan = document.getElementById('view-beneficiaries');
 
 if (beneficiariesSpan) {
     let summary = 'None added';
-    
-    if (rawValue && rawValue.trim() !== '') {
-        let parsed = [];
-        
-        // Try parsing as JSON first
-        try {
-            parsed = JSON.parse(rawValue);
-        } catch (e) {
-            console.log('Not valid JSON, treating as comma-separated string:', rawValue);
-            // Fallback: split plain text by comma
-            parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
-        }
+    let total = 0;
 
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            let totalMale = 0;
-            let totalFemale = 0;
-            let parts = [];
+    if (Array.isArray(beneficiariesJson) && beneficiariesJson.length > 0) {
+        let parts = [];
 
-            parsed.forEach(item => {
-                const typeText = (item.type || item || '').trim();
-                const male   = Number(item.male   || 0);
-                const female = Number(item.female || 0);
+        beneficiariesJson.forEach(b => {
+            const typeText = (b.type || '').trim();
+            const male   = Number(b.male   || 0);
+            const female = Number(b.female || 0);
 
-                if (typeText) {
-                    if (male > 0 || female > 0) {
-                        parts.push(`${typeText}: ${male} male, ${female} female`);
-                        totalMale += male;
-                        totalFemale += female;
-                    } else {
-                        parts.push(typeText);
-                    }
+            if (typeText) {
+                if (male > 0 || female > 0) {
+                    parts.push(`${typeText}: ${male} male, ${female} female`);
+                } else {
+                    parts.push(typeText);
                 }
-            });
+                total += male + female;
+            }
+        });
 
-            if (parts.length > 0) {
-                summary = parts.join(' | ');
-                if (totalMale + totalFemale > 0) {
-                    summary += ` | Total: ${totalMale + totalFemale} (M: ${totalMale}, F: ${totalFemale})`;
-                }
+        if (parts.length > 0) {
+            summary = parts.join(' | ');
+            if (total > 0) {
+                summary += ` | Total: ${total}`;
             }
         }
     }
 
     beneficiariesSpan.textContent = summary;
 } else {
-    console.warn('Beneficiaries span not found');
+    console.warn('Beneficiaries span element not found in view_activity');
 }
 
     // Delete photo handler (unchanged)
