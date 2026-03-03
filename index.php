@@ -9,11 +9,77 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once 'config/db.php';
 
+// FullCalendar events array
+$events = [];
+
+// 1. Active Programs → duration range (BSU red)
+try {
+    $stmt = $pdo->query("
+        SELECT id, title, duration_start, duration_end
+        FROM program_entries
+        WHERE status = 'active'
+        AND duration_start IS NOT NULL
+        AND duration_end IS NOT NULL
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $events[] = [
+            'title' => $row['title'] . ' (Program)',
+            'start' => $row['duration_start'],
+            'end'   => date('Y-m-d', strtotime($row['duration_end'] . ' +1 day')),
+            'url'   => "opmm/view.php?id={$row['id']}",
+            'color' => '#C8102E',
+            'textColor' => '#FFFFFF',
+            'extendedProps' => ['type' => 'program']
+        ];
+    }
+} catch (PDOException $e) {}
+
+// 2. Active Projects → implementation date
+try {
+    $stmt = $pdo->query("
+        SELECT id, project_title, date_of_implementation
+        FROM project_entries
+        WHERE status = 'active'
+        AND date_of_implementation IS NOT NULL
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $events[] = [
+            'title' => $row['project_title'] . ' (Project)',
+            'start' => date('Y-m-d', strtotime($row['date_of_implementation'])),
+            'url'   => "opmm/view_project.php?id={$row['id']}",
+            'color' => '#9B1C3A',
+            'textColor' => '#FFFFFF',
+            'extendedProps' => ['type' => 'project']
+        ];
+    }
+} catch (PDOException $e) {}
+
+// 3. Active Activities → implementation date
+try {
+    $stmt = $pdo->query("
+        SELECT id, activity_name, date_of_implementation
+        FROM activity_entries
+        WHERE status = 'active'
+        AND date_of_implementation IS NOT NULL
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $events[] = [
+            'title' => $row['activity_name'] . ' (Activity)',
+            'start' => date('Y-m-d', strtotime($row['date_of_implementation'])),
+            'url'   => "opmm/view_activity.php?id={$row['id']}",
+            'color' => '#6B7280',
+            'textColor' => '#FFFFFF',
+            'borderColor' => '#C8102E',
+            'extendedProps' => ['type' => 'activity']
+        ];
+    }
+} catch (PDOException $e) {}
+
+// Existing due monitoring list
 $today = date('Y-m-d');
-$currentDayOfWeek = date('N'); // 1 = Monday, 7 = Sunday
+$currentDayOfWeek = date('N');
 
 try {
-    // Get all active entries with frequency
     $stmt = $pdo->query("
         SELECT id, title, quarter, fiscal_year, frequency_monitoring, date_duration
         FROM ppa_entries
@@ -22,65 +88,34 @@ try {
     ");
     $allEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Filter entries that need monitoring today/this week
     $dueToday = [];
-    $dueThisWeek = [];
-
     foreach ($allEntries as $entry) {
-        $freq = $entry['frequency_monitoring'] ?? '';
-
-        if (empty($freq)) continue;
-
+        $freq = strtolower($entry['frequency_monitoring'] ?? '');
         $needsAttention = false;
 
-        switch (strtolower($freq)) {
+        switch ($freq) {
             case 'daily':
-                $needsAttention = true; // every day
+                $needsAttention = true;
                 break;
-
             case 'weekly':
-                // Assume weekly means every week on the same day of week as date_duration (simple heuristic)
-                // You can refine this later
-                $needsAttention = true; // for now show all weekly every day
+                $needsAttention = true;
                 break;
-
-            case 'bi-weekly':
-                // Every two weeks — requires tracking last monitored date (future feature)
-                $needsAttention = true; // placeholder
-                break;
-
             case 'monthly':
-                // Show on the same date every month (e.g., if date_duration is 6th, show on 6th)
-                $dayOfMonth = (int)date('j', strtotime($today));
-                if (strpos($entry['date_duration'], date('j')) !== false) {
+                $dayOfMonth = date('j', strtotime($today));
+                if (strpos($entry['date_duration'], (string)$dayOfMonth) !== false) {
                     $needsAttention = true;
                 }
                 break;
-
             case 'quarterly':
-                // Show at the start of each quarter
-                $currentQuarter = ceil(date('n') / 3);
-                if ($currentQuarter != ceil(date('n', strtotime($entry['date_duration'])) / 3)) {
-                    $needsAttention = true;
-                }
-                break;
-
             case 'annually':
-                // Show on anniversary date
-                if (date('m-d', strtotime($today)) === date('m-d', strtotime($entry['date_duration']))) {
-                    $needsAttention = true;
-                }
-                break;
-
             case 'as needed':
             case 'event-based':
-                // Show always or based on custom logic
                 $needsAttention = true;
                 break;
         }
 
         if ($needsAttention) {
-            $dueToday[] = $entry; // for now put all in "due today" – refine later
+            $dueToday[] = $entry;
         }
     }
 } catch (PDOException $e) {
@@ -95,6 +130,52 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPA Dashboard - Home</title>
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- FullCalendar v6 -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+    <style>
+        #calendar {
+            max-width: 1200px;
+            margin: 40px auto;
+            background: #FFFFFF;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid #E5E7EB;
+        }
+        .fc .fc-button-primary {
+            background-color: #C8102E;
+            border-color: #C8102E;
+            color: white;
+        }
+        .fc .fc-button-primary:hover {
+            background-color: #A30D26;
+            border-color: #A30D26;
+        }
+        .fc .fc-button-primary:disabled {
+            background-color: #6B7280;
+            border-color: #6B7280;
+        }
+        .fc-event {
+            border: none;
+            padding: 4px 8px;
+            font-size: 0.95em;
+            border-radius: 4px;
+        }
+        .fc-event:hover {
+            opacity: 0.9;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .fc-daygrid-day-number {
+            color: #374151;
+        }
+        .fc-col-header-cell-cushion {
+            color: #374151;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
 
@@ -112,14 +193,19 @@ try {
 
     <main class="dashboard-content">
         <h1>PPA Monitoring Dashboard</h1>
-        <p>Items that may need attention today / this week based on monitoring frequency.</p>
+
+        <!-- Calendar -->
+        <div id="calendar"></div>
+
+        <!-- Existing due monitoring list -->
+        <p style="margin-top: 40px;">Items that may need attention based on monitoring frequency.</p>
 
         <?php if (empty($dueToday)): ?>
-            <p class="info">No PPAs require monitoring today.</p>
+            <p class="info">No PPAs require monitoring at this time.</p>
         <?php else: ?>
             <div class="summary-grid">
                 <div class="summary-card">
-                    <h3>Due Today / This Week</h3>
+                    <h3>Due for Monitoring</h3>
                     <p class="placeholder"><?= count($dueToday) ?></p>
                 </div>
             </div>
@@ -132,7 +218,8 @@ try {
                             <a href="opmm/view.php?id=<?= $entry['id'] ?>" style="text-decoration: none; color: #374151;">
                                 <strong><?= htmlspecialchars($entry['title']) ?></strong><br>
                                 <small>
-                                    <?= htmlspecialchars($entry['quarter']) ?> Quarter, FY <?= htmlspecialchars($entry['fiscal_year']) ?>
+                                    <?= htmlspecialchars($entry['quarter'] ?? 'N/A') ?> Quarter, 
+                                    FY <?= htmlspecialchars($entry['fiscal_year'] ?? 'N/A') ?>
                                     · <?= htmlspecialchars($entry['frequency_monitoring'] ?? 'Not specified') ?>
                                 </small>
                             </a>
@@ -141,12 +228,33 @@ try {
                 </ul>
             </div>
         <?php endif; ?>
-
-        <div style="text-align: center; margin-top: 48px;">
-            <a href="opmm/list.php" class="action-btn add" style="font-size: 1.3rem; padding: 18px 48px;">
-                View All PPAs
-            </a>
-        </div>
     </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: <?= json_encode($events) ?>,
+            eventClick: function(info) {
+                if (info.event.url) {
+                    window.open(info.event.url, '_blank');
+                    info.jsEvent.preventDefault();
+                }
+            },
+            height: 'auto',
+            contentHeight: 'auto',
+            eventDidMount: function(info) {
+                info.el.title = info.event.title;
+            }
+        });
+        calendar.render();
+    });
+    </script>
 </body>
 </html>
