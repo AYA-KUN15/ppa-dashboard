@@ -92,12 +92,12 @@ try {
                 <p><strong>Status:</strong> 
                     <?php
                     $status = strtolower($program['status'] ?? 'active');
-                    $displayStatus = ucfirst($status);
-                    $color = ($status === 'completed' || $status === 'archived') ? '#10b981' : '#c8102e'; // red for active
+                    if ($status !== 'active') {
+                        echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
+                    } else {
+                        echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
+                    }
                     ?>
-                    <span style="color: <?= $color ?>; font-weight: 600;">
-                        <?= htmlspecialchars($displayStatus) ?>
-                    </span>
                 </p>
             </div>
 
@@ -116,9 +116,6 @@ try {
                                         <span class="quarter-btn-title"><?= htmlspecialchars($project['project_title']) ?></span>
                                         <span class="quarter-btn-subtitle">
                                             <?= htmlspecialchars($project['date_of_implementation']) ?>
-                                            <?php if ($project['status'] !== 'active'): ?>
-                                                <span style="color: #10b981; font-weight: 600;"> (<?= ucfirst($project['status']) ?>)</span>
-                                            <?php endif; ?>
                                         </span>
                                     </button>
 
@@ -151,23 +148,30 @@ try {
     <script>
     // Beneficiaries summary
     const beneficiariesJson = <?= json_encode(json_decode($program['beneficiaries_json'] ?? '[]', true)) ?>;
-    let summary = '';
-    let total = 0;
-    beneficiariesJson.forEach(b => {
-        const typeText = b.type?.trim() || '';
-        const male = parseInt(b.male) || 0;
-        const female = parseInt(b.female) || 0;
-        if (typeText) {
-            if (male > 0 || female > 0) {
-                summary += `${typeText}: ${male} male, ${female} female | `;
-            } else {
-                summary += `${typeText} | `;
-            }
-            total += male + female;
+    const beneficiariesSpan = document.getElementById('view-beneficiaries');
+    if (beneficiariesSpan) {
+        let summary = '';
+        let total = 0;
+        if (Array.isArray(beneficiariesJson)) {
+            beneficiariesJson.forEach(b => {
+                const typeText = b.type?.trim() || '';
+                const male = parseInt(b.male ?? 0);
+                const female = parseInt(b.female ?? 0);
+                if (typeText) {
+                    if (male > 0 || female > 0) {
+                        summary += `${typeText}: ${male} male, ${female} female | `;
+                    } else {
+                        summary += `${typeText} | `;
+                    }
+                    total += male + female;
+                }
+            });
+            summary += total > 0 ? `Total: ${total}` : '';
+            beneficiariesSpan.textContent = summary.trim() || 'None added';
         }
-    });
-    summary += total > 0 ? `Total: ${total}` : '';
-    document.getElementById('view-beneficiaries').textContent = summary.trim() || 'None added';
+    } else {
+        console.warn('Beneficiaries span not found');
+    }
 
     // Complete button handler
     document.querySelectorAll('.complete-icon-btn').forEach(btn => {
@@ -177,7 +181,7 @@ try {
             const mode = this.dataset.mode || 'project';
             const entity = mode === 'project' ? 'project' : 'activity';
 
-            if (confirm(`Mark this ${entity} as completed? It will move to the archive view.`)) {
+            if (confirm(`Mark this ${entity} as completed?`)) {
                 btn.disabled = true;
                 const originalIcon = btn.innerHTML;
                 btn.innerHTML = '<span class="material-icons">hourglass_empty</span>';

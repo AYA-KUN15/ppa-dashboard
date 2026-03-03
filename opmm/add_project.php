@@ -58,11 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $project_title = trim($_POST['project_title'] ?? '');
         $impl_month = trim($_POST['impl_month'] ?? '');
         $impl_year = trim($_POST['impl_year'] ?? '');
-        $type_agenda = !empty($_POST['type_agenda']) ? implode(', ', $_POST['type_agenda']) : '';
-        $sdg_goals = !empty($_POST['sdg_goals']) ? implode(', ', $_POST['sdg_goals']) : '';
-        $offices = !empty($_POST['offices']) ? implode(', ', $_POST['offices']) : '';
-        $programs = !empty($_POST['programs']) ? implode(', ', $_POST['programs']) : '';
-        $beneficiaries = !empty($_POST['beneficiaries']) ? json_encode($_POST['beneficiaries']) : '[]';
+        $type_agenda = trim($_POST['type_agenda'] ?? '');
+        $sdg_goals = trim($_POST['sdg_goals'] ?? '');
+        $offices = trim($_POST['offices'] ?? '');
+        $programs = trim($_POST['programs'] ?? '');
+        $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
         if (empty($project_title) || empty($impl_month) || empty($impl_year) ||
             empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
@@ -117,8 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php endif; ?>
 
-        <?php if ($show_confirmation): $d = $_SESSION['pending_project']; ?>
-            <div class="confirmation-box">
+        <div id="confirmation-box" class="confirmation-box" style="<?= $show_confirmation ? '' : 'display:none;' ?>">
+            <?php if ($show_confirmation): $d = $_SESSION['pending_project']; ?>
                 <h2>Confirm Project Details</h2>
                 <p><strong>Project Title:</strong> <?= htmlspecialchars($d['project_title']) ?></p>
                 <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($d['date_of_implementation']) ?></p>
@@ -128,47 +128,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs_involved'] ?: 'None') ?></p>
                 <p><strong>Beneficiaries:</strong> <?= htmlspecialchars($d['beneficiaries_json'] !== '[]' ? $d['beneficiaries_json'] : 'None') ?></p>
 
-                <form method="POST">
-                    <button type="submit" name="confirm">Confirm & Save</button>
-                    <a href="add_project.php?program_id=<?= htmlspecialchars($program_id) ?>" class="cancel-link">Cancel</a>
-                </form>
-            </div>
-        <?php else: ?>
+                <div style="margin-top: 24px;">
+                    <form method="POST" style="display:inline;">
+                        <button type="submit" name="confirm">Confirm & Save</button>
+                    </form>
+                    <button type="button" onclick="cancelConfirmation()" class="cancel-link">Cancel</button>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div id="add-form" style="<?= $show_confirmation ? 'display:none;' : 'display:block;' ?>">
             <form method="POST">
                 <input type="hidden" name="program_id" value="<?= htmlspecialchars($program_id) ?>">
 
                 <label for="project_title">Project Title *</label>
-                <input type="text" id="project_title" name="project_title" placeholder="Enter project title" required>
+                <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($_POST['project_title'] ?? '') ?>" placeholder="Enter project title" required>
 
                 <!-- Type -->
                 <label>Type of Extension Service Agenda *</label>
                 <button type="button" onclick="openModal('type-modal')">Select Types</button>
-                <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="type_agenda" id="type-hidden">
+                <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['type_agenda'] ?? 'None selected') ?></div>
+                <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($_POST['type_agenda'] ?? '') ?>">
 
                 <!-- SDG -->
                 <label>Sustainable Development Goals *</label>
                 <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-                <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="sdg_goals" id="sdg-hidden">
+                <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['sdg_goals'] ?? 'None selected') ?></div>
+                <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($_POST['sdg_goals'] ?? '') ?>">
 
                 <!-- Offices -->
                 <label>Offices Involved *</label>
                 <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-                <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="offices" id="offices-hidden">
+                <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['offices'] ?? 'None selected') ?></div>
+                <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($_POST['offices'] ?? '') ?>">
 
                 <!-- Programs -->
                 <label>Programs Involved *</label>
                 <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-                <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="programs" id="programs-hidden">
+                <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['programs'] ?? 'None selected') ?></div>
+                <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($_POST['programs'] ?? '') ?>">
 
                 <!-- Beneficiaries -->
                 <label>Beneficiaries *</label>
-                <button type="button" onclick="openModal('beneficiaries-modal')">Select Beneficiaries</button>
-                <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="beneficiaries" id="beneficiaries-hidden">
+                <button type="button" onclick="openBeneficiariesModal()">Select Beneficiaries</button>
+                <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                    <?= htmlspecialchars($_POST['beneficiaries'] ?? 'None selected') ?>
+                </div>
+                <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($_POST['beneficiaries'] ?? '[]') ?>">
 
                 <label>Date of Implementation *</label>
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
@@ -184,7 +190,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $month = $dt->format('F');
                             if (!in_array($month, $shownMonths)) {
                                 $shownMonths[] = $month;
-                                echo "<option value=\"$month\">$month</option>";
+                                $selected = ($month === ($_POST['impl_month'] ?? '')) ? 'selected' : '';
+                                echo "<option value=\"$month\" $selected>$month</option>";
                             }
                         }
                         ?>
@@ -196,7 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $startYear = (int) date('Y', strtotime($parent['duration_start']));
                         $endYear = (int) date('Y', strtotime($parent['duration_end']));
                         for ($y = $startYear; $y <= $endYear; $y++) {
-                            echo "<option value=\"$y\">$y</option>";
+                            $selected = ($y == ($_POST['impl_year'] ?? '')) ? 'selected' : '';
+                            echo "<option value=\"$y\" $selected>$y</option>";
                         }
                         ?>
                     </select>
@@ -204,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <button type="submit">Review & Add</button>
             </form>
-        <?php endif; ?>
+        </div>
     </main>
 
     <!-- Type Modal -->
@@ -215,14 +223,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
                 if ($parent['type_of_extension_service_agenda']) {
-                    $types = explode(', ', $parent['type_of_extension_service_agenda']);
+                    $types = array_map('trim', explode(',', $parent['type_of_extension_service_agenda']));
                     foreach ($types as $t) {
-                        $t = trim($t);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($t) . '
-                            <input type="checkbox" value="' . htmlspecialchars($t) . '">
-                        </label>';
+                        if ($t !== '') {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($t) . '
+                                <input type="checkbox" value="' . htmlspecialchars($t) . '">
+                            </label>';
+                        }
                     }
                 } else {
                     echo '<p>No types available from parent program.</p>';
@@ -244,14 +253,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
                 if ($parent['sdg_goals']) {
-                    $sdgs = explode(', ', $parent['sdg_goals']);
+                    $sdgs = array_map('trim', explode(',', $parent['sdg_goals']));
                     foreach ($sdgs as $s) {
-                        $s = trim($s);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($s) . '
-                            <input type="checkbox" value="' . htmlspecialchars($s) . '">
-                        </label>';
+                        if ($s !== '') {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($s) . '
+                                <input type="checkbox" value="' . htmlspecialchars($s) . '">
+                            </label>';
+                        }
                     }
                 } else {
                     echo '<p>No SDGs available from parent program.</p>';
@@ -272,15 +282,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h2>Select Offices Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
+                $offices = [];
                 if ($parent['offices_involved']) {
-                    $offices = explode(', ', $parent['offices_involved']);
+                    $offices = array_map('trim', explode(',', $parent['offices_involved']));
+                }
+                if (!empty($offices)) {
                     foreach ($offices as $o) {
-                        $o = trim($o);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($o) . '
-                            <input type="checkbox" value="' . htmlspecialchars($o) . '">
-                        </label>';
+                        if ($o !== '') {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($o) . '
+                                <input type="checkbox" value="' . htmlspecialchars($o) . '">
+                            </label>';
+                        }
                     }
                 } else {
                     echo '<p>No offices available from parent program.</p>';
@@ -301,15 +315,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h2>Select Programs Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
+                $programs = [];
                 if ($parent['programs_involved']) {
-                    $progs = explode(', ', $parent['programs_involved']);
-                    foreach ($progs as $p) {
-                        $p = trim($p);
-                        echo '
-                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($p) . '
-                            <input type="checkbox" value="' . htmlspecialchars($p) . '">
-                        </label>';
+                    $programs = array_map('trim', explode(',', $parent['programs_involved']));
+                }
+                if (!empty($programs)) {
+                    foreach ($programs as $p) {
+                        if ($p !== '') {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($p) . '
+                                <input type="checkbox" value="' . htmlspecialchars($p) . '">
+                            </label>';
+                        }
                     }
                 } else {
                     echo '<p>No programs available from parent program.</p>';
@@ -323,34 +341,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <!-- Beneficiaries Modal -->
+    <!-- Beneficiaries Modal – selection only, copied from program style -->
     <div id="beneficiaries-modal" class="modal-overlay">
-        <div class="modal-box">
+        <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
-            <h2>Select Beneficiaries</h2>
-            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-                <?php
-                if ($parent['beneficiaries_json']) {
-                    $benefs = json_decode($parent['beneficiaries_json'], true);
-                    if (is_array($benefs)) {
-                        foreach ($benefs as $b) {
-                            if (!empty($b['type'])) {
-                                echo '
-                                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                    ' . htmlspecialchars($b['type']) . '
-                                    <input type="checkbox" value="' . htmlspecialchars($b['type']) . '">
-                                </label>';
-                            }
-                        }
-                    }
-                } else {
-                    echo '<p>No beneficiaries available from parent program.</p>';
-                }
-                ?>
-            </div>
-            <div class="modal-actions">
-                <button onclick="saveModalSelections('beneficiaries')">Save</button>
-                <button onclick="closeModal('beneficiaries-modal')">Cancel</button>
+            <h2>Select Beneficiaries from Program</h2>
+            <div id="beneficiary-rows" style="margin-bottom: 20px;"></div>
+            <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+                <button onclick="saveBeneficiaries()" 
+                        style="padding: 12px 24px; background: #c8102e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    Save Selected
+                </button>
+                <button onclick="closeModal('beneficiaries-modal')" 
+                        style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -366,16 +371,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.body.classList.remove('modal-open');
     }
 
+    function cancelConfirmation() {
+        document.getElementById('confirmation-box').style.display = 'none';
+        document.getElementById('add-form').style.display = 'block';
+    }
+
     function saveModalSelections(type) {
         const modal = document.getElementById(type + '-modal');
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
-        const values = Array.from(checkboxes).map(cb => cb.value);
-        const hidden = document.getElementById(type + '-hidden');
-        const display = document.getElementById('selected-' + type + 's');
+        const values = Array.from(checkboxes).map(cb => cb.value.trim());
 
-        hidden.value = values.join(', ');
-        display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+        const hidden = document.getElementById(type + '-hidden');
+
+        const displayMap = {
+            'type':         'selected-types',
+            'sdg':          'selected-sdgs',
+            'offices':      'selected-offices',
+            'programs':     'selected-programs',
+            'beneficiaries': 'selected-beneficiaries'
+        };
+        const displayId = displayMap[type];
+        const display = displayId ? document.getElementById(displayId) : null;
+
+        if (hidden) {
+            hidden.value = values.join(', ');
+        } else {
+            console.error(`Hidden input #${type}-hidden not found`);
+        }
+
+        if (display) {
+            display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+        } else {
+            console.error(`Display div #${displayId || 'unknown'} not found for type ${type}`);
+        }
+
         closeModal(type + '-modal');
+    }
+
+    // Beneficiaries selection modal
+    let beneficiariesData = [];
+
+    function loadBeneficiaries() {
+    const rowsDiv = document.getElementById('beneficiary-rows');
+    rowsDiv.innerHTML = '';
+
+    // Get pre-filled data from parent
+    const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+    let entries = [];
+
+    try {
+        entries = JSON.parse(parentJson);
+        // Ensure every entry has male/female (default 0 if missing)
+        entries = entries.map(e => ({
+            type: e.type || 'Unnamed Type',
+            male: Number(e.male || 0),
+            female: Number(e.female || 0)
+        }));
+    } catch (e) {
+        console.log('Parent beneficiaries not valid JSON, treating as comma-separated types:', parentJson);
+        // Fallback: plain text → types only, male/female = 0
+        entries = parentJson.split(',').map(item => ({
+            type: item.trim(),
+            male: 0,
+            female: 0
+        })).filter(e => e.type !== '');
+    }
+
+    if (entries.length === 0) {
+        rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in the parent.</p>';
+        return;
+    }
+
+    beneficiariesData = entries.map((e, i) => ({ ...e, index: i, selected: true }));
+
+    entries.forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '16px';
+        row.style.marginBottom = '12px';
+        row.style.padding = '12px';
+        row.style.border = '1px solid #d1d5db';
+        row.style.borderRadius = '6px';
+
+        row.innerHTML = `
+            <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
+
+            <div style="flex: 1;">
+                <strong>${entry.type}</strong><br>
+                <span style="color:#6b7280;">
+                    Male: ${entry.male} | Female: ${entry.female}
+                </span>
+            </div>
+        `;
+
+        rowsDiv.appendChild(row);
+    });
+}
+
+    function toggleBeneficiary(index, checked) {
+        if (beneficiariesData[index]) {
+            beneficiariesData[index].selected = checked;
+        }
+    }
+
+    function saveBeneficiaries() {
+        const selected = beneficiariesData
+            .filter(b => b.selected)
+            .map(b => ({ type: b.type, male: b.male, female: b.female }));
+
+        const hidden = document.getElementById('beneficiaries-hidden');
+        if (hidden) {
+            hidden.value = JSON.stringify(selected);
+        }
+
+        const preview = document.getElementById('selected-beneficiaries');
+        if (preview) {
+            const count = selected.length;
+            preview.textContent = count > 0 ? `${count} beneficiary type(s) selected` : 'None selected';
+        }
+
+        closeModal('beneficiaries-modal');
+    }
+
+    function openBeneficiariesModal() {
+        openModal('beneficiaries-modal');
+        loadBeneficiaries();
     }
     </script>
 </body>

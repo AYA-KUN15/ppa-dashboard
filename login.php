@@ -71,8 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label for="password">Password</label>
             <div class="password-wrapper">
                 <input type="password" id="password" name="password" 
-                       required maxlength="100">
-                <button type="button" class="toggle-password" aria-label="Toggle password visibility">
+                       placeholder="Password" required>
+                <button type="button" class="toggle-password" id="togglePassword">
                     <span class="material-icons" id="toggle-icon">visibility</span>
                 </button>
             </div>
@@ -87,20 +87,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
-        function togglePassword() {
-            const input = document.getElementById('password');
-            const icon = document.getElementById('toggle-icon');
+        const passwordInput = document.getElementById('password');
+        const toggleButton = document.getElementById('togglePassword');
+        const toggleIcon = document.getElementById('toggle-icon');
 
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.textContent = 'visibility_off';
+        toggleButton.addEventListener('click', () => {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = 'visibility_off';
             } else {
-                input.type = 'password';
-                icon.textContent = 'visibility';
+                passwordInput.type = 'password';
+                toggleIcon.textContent = 'visibility';
             }
-        }
-
-        document.querySelector('.toggle-password').addEventListener('click', togglePassword);
+        });
     </script>
 </body>
 </html>

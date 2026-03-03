@@ -6,7 +6,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     exit;
 }
 
-require_once '../../config/db.php';  // go up two levels from uploads/ to root
+require_once '../config/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request']);
@@ -31,8 +31,8 @@ try {
         exit;
     }
 
-    // Delete physical file
-    $filePath = '../../' . $doc['image_path'];  // go up two levels to root
+    // Delete file from opmm-dashboard/uploads/...
+    $filePath = dirname(__DIR__) . '/' . $doc['image_path'];
     if (file_exists($filePath)) {
         unlink($filePath);
     }

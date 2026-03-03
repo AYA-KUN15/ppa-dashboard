@@ -47,15 +47,6 @@ try {
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
-
-$beneficiaries = [];
-if (!empty($project['beneficiaries_json'])) {
-    $decoded = json_decode($project['beneficiaries_json'], true);
-    if (is_array($decoded)) {
-        $beneficiaries = $decoded;
-    }
-}
-
 ?>
 
 <!DOCTYPE html>
@@ -99,12 +90,12 @@ if (!empty($project['beneficiaries_json'])) {
                 <p><strong>Status:</strong> 
                     <?php
                     $status = strtolower($project['status'] ?? 'active');
-                    $displayStatus = ucfirst($status);
-                    $color = ($status === 'completed' || $status === 'archived') ? '#10b981' : '#c8102e';
+                    if ($status !== 'active') {
+                        echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
+                    } else {
+                        echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
+                    }
                     ?>
-                    <span style="color: <?= $color ?>; font-weight: 600;">
-                        <?= htmlspecialchars($displayStatus) ?>
-                    </span>
                 </p>
             </div>
 
@@ -123,9 +114,6 @@ if (!empty($project['beneficiaries_json'])) {
                                         <span class="quarter-btn-title"><?= htmlspecialchars($activity['activity_name']) ?></span>
                                         <span class="quarter-btn-subtitle">
                                             <?= htmlspecialchars($activity['date_of_implementation']) ?>
-                                            <?php if ($activity['status'] !== 'active'): ?>
-                                                <span style="color: #10b981; font-weight: 600;"> (<?= ucfirst($activity['status']) ?>)</span>
-                                            <?php endif; ?>
                                         </span>
                                     </button>
 
@@ -155,35 +143,62 @@ if (!empty($project['beneficiaries_json'])) {
     </main>
 
     <script>
-    // Beneficiaries summary
-    const beneficiariesJson = <?= json_encode($beneficiaries) ?>;
-    const beneficiariesSpan = document.getElementById('view-beneficiaries');
-    if (beneficiariesSpan) {
-        let summary = '';
-        let total = 0;
-        if (Array.isArray(beneficiariesJson)) {
-    beneficiariesJson.forEach(b => {
-            const typeText = b.type?.trim() || '';
-            const male = parseInt(b.male) || 0;
-            const female = parseInt(b.female) || 0;
-            if (typeText) {
-                if (male > 0 || female > 0) {
-                    summary += `${typeText}: ${male} male, ${female} female | `;
-                } else {
-                    summary += `${typeText} | `;
+    // Beneficiaries summary - handles both JSON and plain text
+const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
+
+const beneficiariesSpan = document.getElementById('view-beneficiaries');
+
+if (beneficiariesSpan) {
+    let summary = 'None added';
+    
+    if (rawValue && rawValue.trim() !== '') {
+        let parsed = [];
+        
+        // Try parsing as JSON first
+        try {
+            parsed = JSON.parse(rawValue);
+        } catch (e) {
+            console.log('Not valid JSON, treating as comma-separated string:', rawValue);
+            // Fallback: split plain text by comma
+            parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
+        }
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            let totalMale = 0;
+            let totalFemale = 0;
+            let parts = [];
+
+            parsed.forEach(item => {
+                const typeText = (item.type || item || '').trim();
+                const male   = Number(item.male   || 0);
+                const female = Number(item.female || 0);
+
+                if (typeText) {
+                    if (male > 0 || female > 0) {
+                        parts.push(`${typeText}: ${male} male, ${female} female`);
+                        totalMale += male;
+                        totalFemale += female;
+                    } else {
+                        parts.push(typeText);
+                    }
                 }
-                total += male + female;
+            });
+
+            if (parts.length > 0) {
+                summary = parts.join(' | ');
+                if (totalMale + totalFemale > 0) {
+                    summary += ` | Total: ${totalMale + totalFemale} (M: ${totalMale}, F: ${totalFemale})`;
+                }
             }
-                })
-}
-        };
-        summary += total > 0 ? `Total: ${total}` : '';
-        beneficiariesSpan.textContent = summary.trim() || 'None added';
-    } else {
-        console.warn('Beneficiaries span not found');
+        }
     }
 
-    // Complete button handler
+    beneficiariesSpan.textContent = summary;
+} else {
+    console.warn('Beneficiaries span not found');
+}
+
+    // Complete button handler (unchanged)
     document.querySelectorAll('.complete-icon-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -191,7 +206,7 @@ if (!empty($project['beneficiaries_json'])) {
             const mode = this.dataset.mode || 'project';
             const entity = mode === 'project' ? 'project' : 'activity';
 
-            if (confirm(`Mark this ${entity} as completed? It will move to the archive view.`)) {
+            if (confirm(`Mark this ${entity} as completed?`)) {
                 btn.disabled = true;
                 const originalIcon = btn.innerHTML;
                 btn.innerHTML = '<span class="material-icons">hourglass_empty</span>';

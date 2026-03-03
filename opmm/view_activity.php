@@ -131,12 +131,12 @@ try {
                 <p><strong>Status:</strong> 
                     <?php
                     $status = strtolower($activity['status'] ?? 'active');
-                    $displayStatus = ucfirst($status);
-                    $color = ($status === 'completed' || $status === 'archived') ? '#10b981' : '#c8102e';
+                    if ($status !== 'active') {
+                        echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
+                    } else {
+                        echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
+                    }
                     ?>
-                    <span style="color: <?= $color ?>; font-weight: 600;">
-                        <?= htmlspecialchars($displayStatus) ?>
-                    </span>
                 </p>
             </div>
 
@@ -182,37 +182,69 @@ try {
     </main>
 
     <script>
-    // Beneficiaries summary
-    const beneficiariesJson = <?= json_encode(json_decode($activity['beneficiaries_json'] ?? '[]', true)) ?>;
-    const beneficiariesSpan = document.getElementById('view-beneficiaries');
-    if (beneficiariesSpan) {
-        let summary = '';
-        let total = 0;
-        beneficiariesJson.forEach(b => {
-            const typeText = b.type?.trim() || '';
-            const male = parseInt(b.male) || 0;
-            const female = parseInt(b.female) || 0;
-            if (typeText) {
-                if (male > 0 || female > 0) {
-                    summary += `${typeText}: ${male} male, ${female} female | `;
-                } else {
-                    summary += `${typeText} | `;
+    // Beneficiaries summary - handles both JSON and plain text
+const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
+
+const beneficiariesSpan = document.getElementById('view-beneficiaries');
+
+if (beneficiariesSpan) {
+    let summary = 'None added';
+    
+    if (rawValue && rawValue.trim() !== '') {
+        let parsed = [];
+        
+        // Try parsing as JSON first
+        try {
+            parsed = JSON.parse(rawValue);
+        } catch (e) {
+            console.log('Not valid JSON, treating as comma-separated string:', rawValue);
+            // Fallback: split plain text by comma
+            parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
+        }
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            let totalMale = 0;
+            let totalFemale = 0;
+            let parts = [];
+
+            parsed.forEach(item => {
+                const typeText = (item.type || item || '').trim();
+                const male   = Number(item.male   || 0);
+                const female = Number(item.female || 0);
+
+                if (typeText) {
+                    if (male > 0 || female > 0) {
+                        parts.push(`${typeText}: ${male} male, ${female} female`);
+                        totalMale += male;
+                        totalFemale += female;
+                    } else {
+                        parts.push(typeText);
+                    }
                 }
-                total += male + female;
+            });
+
+            if (parts.length > 0) {
+                summary = parts.join(' | ');
+                if (totalMale + totalFemale > 0) {
+                    summary += ` | Total: ${totalMale + totalFemale} (M: ${totalMale}, F: ${totalFemale})`;
+                }
             }
-        });
-        summary += total > 0 ? `Total: ${total}` : '';
-        beneficiariesSpan.textContent = summary.trim() || 'None added';
+        }
     }
 
-    // Delete photo handler
+    beneficiariesSpan.textContent = summary;
+} else {
+    console.warn('Beneficiaries span not found');
+}
+
+    // Delete photo handler (unchanged)
     document.querySelectorAll('.delete-photo-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             if (confirm('Delete this photo? This cannot be undone.')) {
                 const docId = this.dataset.docId;
                 const activityId = this.dataset.activityId;
 
-                fetch('delete_documentation.php', {  // correct path from opmm/ to uploads/
+                fetch('delete_documentation.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `doc_id=${encodeURIComponent(docId)}&activity_id=${encodeURIComponent(activityId)}`
@@ -225,7 +257,7 @@ try {
                     if (data.success) {
                         this.closest('.photo-item').remove();
                         alert('Photo deleted successfully.');
-                        location.reload(); // update count & button state
+                        location.reload();
                     } else {
                         alert('Failed: ' + (data.message || 'Unknown error'));
                     }

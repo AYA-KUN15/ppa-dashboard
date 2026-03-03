@@ -16,7 +16,7 @@ if (!$id || !is_numeric($id)) {
     exit;
 }
 
-// Fetch activity name for display
+// Fetch activity name
 $stmt = $pdo->prepare("SELECT activity_name FROM activity_entries WHERE id = ?");
 $stmt->execute([$id]);
 $activity = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -27,7 +27,7 @@ if (!$activity) {
     exit;
 }
 
-// Check existing image count
+// Check existing count
 $countStmt = $pdo->prepare("SELECT COUNT(*) FROM activity_documents WHERE activity_id = ?");
 $countStmt->execute([$id]);
 $existingCount = $countStmt->fetchColumn();
@@ -39,13 +39,15 @@ $remaining = $maxAllowed - $existingCount;
 // Upload handling
 $success = '';
 $error = '';
-$baseUploadDir = __DIR__ . '/';  // current folder: uploads/
+
+// New upload path: opmm-dashboard/uploads/activity_{id}/
+$baseUploadDir = dirname(__DIR__) . '/uploads/';
 $activityUploadDir = $baseUploadDir . "activity_$id/";
 
 if (!is_dir($activityUploadDir)) {
     if (!mkdir($activityUploadDir, 0755, true)) {
         error_log("Failed to create activity upload directory: $activityUploadDir");
-        $error = "Server error: cannot create activity folder. Check permissions.";
+        $error = "Server error: cannot create upload folder.";
     }
 }
 
@@ -70,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
                 $fileType = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
                 if ($fileError !== UPLOAD_ERR_OK) {
-                    $error .= "Upload error for $fileName (code: $fileError).<br>";
+                    $error .= "Upload error for $fileName.<br>";
                     continue;
                 }
 
@@ -93,8 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
                     $stmt->execute([$id, $dbPath]);
                     $uploaded++;
                 } else {
-                    error_log("Failed to move file: $fileName to $destPath");
-                    $error .= "Failed to save $fileName (check folder permissions).<br>";
+                    $error .= "Failed to save $fileName (permission issue?).<br>";
                 }
             }
 
@@ -134,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
         </div>
         <nav class="main-nav">
             <a href="../index.php" class="nav-button">Home</a>
-            <a href="../opmm/view_activity.php?id=<?= $id ?>" class="nav-button">Activity</a>
+            <a href="view_activity.php?id=<?= $id ?>" class="nav-button">Activity</a>
             <a href="../logout.php" class="nav-button logout">Logout</a>
         </nav>
     </header>

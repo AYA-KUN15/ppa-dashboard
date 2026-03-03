@@ -86,6 +86,56 @@ button:hover {
     text-align: center;
 }
 
+/* Password field with eye icon INSIDE the input - small, transparent, gray */
+.password-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding: 12px 44px 12px 12px !important;  /* right padding for small eye */
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.password-wrapper input:focus {
+    border-color: #c8102e;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.2);
+}
+
+/* Eye icon button - small, fully transparent, gray → red icon only on hover */
+.toggle-password {
+    position: absolute;
+    right: 10px;
+    top: 30%;                    /* ← slightly higher than 50% */
+    transform: translateY(-50%);
+    background: transparent;     /* completely invisible background */
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;              /* light gray default */
+    z-index: 2;
+    transition: color 0.2s ease; /* smooth color change only */
+}
+
+.toggle-password:hover,
+.toggle-password:focus {
+    background: transparent !important;  /* no background change ever */
+    color: #c8102e !important;           /* only icon turns red */
+}
+
+.toggle-password .material-icons {
+    font-size: 22px;               /* small icon size */
+}
+
 /* Top bar (Header) */
 .top-bar {
     background: #c8102e;             /* BatStateU red */
@@ -147,13 +197,13 @@ button:hover {
     background: #c8102e;
     color: white;
     border: none;
-    padding: 12px 24px;           /* balanced size — not too big, not too small */
+    padding: 12px 24px;
     border-radius: 8px;
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s;
-    min-width: 220px;             /* consistent minimum width */
+    min-width: 220px;
     text-align: center;
 }
 
@@ -217,7 +267,7 @@ button:hover {
 }
 
 .filter-button.short {
-    padding: 12px 20px;          /* shorter than home page */
+    padding: 12px 20px;
     font-size: 1rem;
 }
 
@@ -234,12 +284,12 @@ button:hover {
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.2s;
-    width: 180px;                     /* exact fixed width */
-    height: 48px;                     /* exact fixed height */
+    width: 180px;
+    height: 48px;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;          /* cuts off long text with ... */
+    text-overflow: ellipsis;
     border: none;
     color: white;
     display: flex;
@@ -258,13 +308,13 @@ button:hover {
 }
 
 .action-btn.archive {
-    background: #c8102e;           /* neutral gray to distinguish from red "Add" */
+    background: #c8102e;
     color: white;
     text-decoration: none !important;
 }
 
 .action-btn.archive:hover {
-    background: #a00d24;           /* darker gray on hover */
+    background: #a00d24;
 }
 
 .action-btn.edit,
@@ -274,6 +324,86 @@ button:hover {
 
 .action-btn.edit:hover,
 .cancel-edit:hover {
+    background: #4b5563;
+}
+
+.cancel-link {
+    display: inline-block;
+    margin-left: 16px;
+    padding: 12px 24px;
+    background: #6b7280;           /* gray background like edit/cancel buttons */
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.cancel-link:hover {
+    background: #4b5563;           /* darker gray on hover */
+}
+
+/* Confirmation box buttons - compact size */
+.confirmation-box {
+    max-width: 500px; /* optional: keep box narrower */
+    margin: 32px auto;
+    padding: 32px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.confirmation-box .modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.confirmation-box form {
+    margin: 0;                     /* remove any default form margin */
+    padding: 0;
+}
+
+.confirmation-box button,
+.confirmation-box .cancel-link {
+    width: auto !important;
+    min-width: 140px;
+    padding: 12px 24px;
+    margin: 0 8px;                 /* even spacing between buttons */
+    border: none;                  /* remove any border */
+    outline: none;                 /* remove focus outline (white square) */
+    box-shadow: none;              /* remove any shadow that might look like a square */
+    background-clip: padding-box;  /* prevent background bleed */
+}
+
+.confirmation-box button:focus,
+.confirmation-box .cancel-link:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.confirmation-box button[type="submit"] {
+    background: #c8102e;
+    color: white;
+    border: none;
+}
+
+.confirmation-box button[type="submit"]:hover {
+    background: #a00d24;
+}
+
+.confirmation-box .cancel-link {
+    background: #6b7280;
+    color: white;
+    border: none;
+    text-decoration: none;
+}
+
+.confirmation-box .cancel-link:hover {
     background: #4b5563;
 }
 
@@ -290,14 +420,46 @@ button:hover {
     height: 40px;
     border-radius: 6px;
     border: none;
-    background: none;
+    background: transparent !important;     /* force no background ever */
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;                /* prevents icons from shrinking */
+    transition: color 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
     margin-left: 8px;
+}
+
+.action-icon .material-icons {
+    color: #757575;           /* gray default */
+    font-size: 24px;
+}
+
+/* Hover: ONLY icon color changes to red, background stays transparent */
+.action-icon:hover .material-icons {
+    color: #c8102e !important;
+}
+
+/* Optional: subtle scale for feedback (no background change) */
+.action-icon:hover {
+    transform: scale(1.15);
+    background: transparent !important;   /* override any inherited bg */
+}
+
+/* Specific overrides for edit (pencil) and complete (check) */
+.edit-icon-btn .material-icons,
+.complete-icon-btn .material-icons {
+    color: #757575 !important;
+}
+
+.edit-icon-btn:hover .material-icons,
+.complete-icon-btn:hover .material-icons {
+    color: #c8102e !important;
+}
+
+.edit-icon-btn:hover,
+.complete-icon-btn:hover {
+    background: transparent !important;
 }
 
 .cancel-delete {
@@ -319,8 +481,8 @@ button:hover {
 }
 
 .quarter-scroll-container {
-    overflow-x: hidden;          /* or just remove overflow-x */
-    white-space: normal;         /* allow wrapping to new lines */
+    overflow-x: hidden;
+    white-space: normal;
     padding: 12px 0;
     margin: 24px 0;
 }
@@ -341,47 +503,283 @@ button:hover {
 
 .quarter-buttons {
     display: flex;
-    flex-direction: column;      /* ← key change: vertical stack */
-    gap: 12px;                   /* space between buttons */
-    max-width: 100%;             /* prevent overflow */
+    flex-direction: column;
+    gap: 12px;
+    max-width: 100%;
 }
 
-/* ──────────────────────────────────────────────── */
-/* FIXED HOVER FOR COMPLETED PROJECTS - NO WHITE BG   */
-/* ──────────────────────────────────────────────── */
+/* Quarter buttons - fixed & consistent (no white) */
+.quarter-btn {
+    padding: 14px 20px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 56px;
+    text-align: left;
+}
 
-/* Force clean green hover for completed items */
-.quarter-btn.completed-project,
+.quarter-btn-title {
+    font-weight: 600;
+    flex: 1;
+    line-height: 1.4;
+    word-break: break-word;
+    background: transparent !important;
+}
+
+.quarter-btn-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-top: 4px;
+    display: block;
+}
+
+/* Status tag (Completed, Archived, etc.) */
+.status-tag {
+    background: #10b981;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+/* Hover for ACTIVE projects (red theme) */
+.quarter-btn:not(.completed-project):hover {
+    background: #fef2f2 !important;
+    border-color: #c8102e !important;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(200, 16, 46, 0.15);
+}
+
+/* Base + Hover for COMPLETED projects (green theme) */
+.quarter-btn.completed-project {
+    background: #ecfdf5 !important;
+    border: 2px solid #10b981 !important;
+    color: #065f46 !important;
+}
+
 .quarter-btn.completed-project:hover,
 .quarter-btn.completed-project:focus,
 .quarter-btn.completed-project:active {
-    background-color: #ecfdf5 !important;     /* light green - adjust shade if needed */
-    border-color: #10b981 !important;
-    outline: none !important;
-    box-shadow: none !important;
+    background: #d1fae5 !important;
+    border-color: #059669 !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    transform: translateX(4px);
 }
 
-/* Title must stay transparent on hover */
+/* Force no white background on title ever */
+.quarter-btn .quarter-btn-title,
+.quarter-btn:hover .quarter-btn-title,
+.quarter-btn:focus .quarter-btn-title,
+.quarter-btn:active .quarter-btn-title,
 .quarter-btn.completed-project .quarter-btn-title,
 .quarter-btn.completed-project:hover .quarter-btn-title {
     background: transparent !important;
-    color: #065f46 !important;                /* dark green text */
+    background-color: transparent !important;
 }
 
-/* Green border & shadow on hover for completed card */
+/* Card hover glow for completed */
 .quarter-item.completed:hover .quarter-btn {
     border-color: #10b981 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 }
 
-/* Active (non-completed) keep red hover */
-.quarter-btn:not(.completed-project):hover {
-    background: #fef2f2 !important;
-    border-color: #c8102e !important;
-}
-
-/* Optional: slight gray for completed (less opacity) */
+/* Optional: slight gray tint for completed */
 .quarter-btn.completed-project {
     opacity: 0.95;
 }
 
+/* ──────────────────────────────────────────────── */
+/* END OF QUARTER BUTTON FIXES                      */
+/* ──────────────────────────────────────────────── */
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.active {
+    display: flex !important;
+}
+
+.modal-box {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-box label {
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.modal-box label:hover {
+    background: #f0f0f0;
+}
+
+.modal-box input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #c8102e;
+    cursor: pointer;
+}
+
+.close-modal {
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    font-size: 2rem;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+.close-modal:hover {
+    color: #c8102e;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    justify-content: flex-end;
+}
+
+.modal-actions button {
+    flex: 1;
+    max-width: 140px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    height: 48px;
+    line-height: 1;
+    box-sizing: border-box;
+    color: white;
+}
+
+.modal-actions button[type="submit"] {
+    background: #c8102e;
+}
+
+.modal-actions button:not([type="submit"]) {
+    background: #757575;
+}
+
+.danger-btn {
+    background: #dc2626;
+    color: white;
+    border: none;
+}
+
+.danger-btn:hover {
+    background: #b91c1c;
+}
+
+/* Prevent scroll when modal open */
+body.modal-open {
+    overflow: hidden;
+}
+
+.fiscal-filter {
+    margin-right: 16px;
+}
+
+.fiscal-filter select {
+    padding: 12px 40px 12px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    min-width: 220px;
+    background: #c8102e;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 12px;
+}
+
+.fiscal-filter select:hover {
+    background-color: #a00d24;
+}
+
+.fiscal-filter select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.3);
+}
+
+/* view table */
+.view-table table {
+    width: 100%;
+    max-width: 800px;
+    margin: 32px auto;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.view-table th, .view-table td {
+    padding: 16px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.view-table th {
+    background: #c8102e;
+    color: white;
+    font-weight: 600;
+    width: 35%;
+}
+
+.view-table td {
+    background: #f9fafb;
+}
+
+.view-actions {
+    text-align: center;
+    margin-top: 32px;
+}
+
+.back-btn {
+    display: inline-block;
+    padding: 12px 32px;
+    background: #6b7280;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.back-btn:hover {
+    background: #4b5563;
+}
