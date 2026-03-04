@@ -9,63 +9,22 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once 'config/db.php';
 
-// FullCalendar events array
+// FullCalendar events – only active activities with duration range
 $events = [];
 
-// 1. Active Programs → duration range (BSU red)
 try {
     $stmt = $pdo->query("
-        SELECT id, title, duration_start, duration_end
-        FROM program_entries
-        WHERE status = 'active'
-        AND duration_start IS NOT NULL
-        AND duration_end IS NOT NULL
-    ");
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $events[] = [
-            'title' => $row['title'] . ' (Program)',
-            'start' => $row['duration_start'],
-            'end'   => date('Y-m-d', strtotime($row['duration_end'] . ' +1 day')),
-            'url'   => "opmm/view.php?id={$row['id']}",
-            'color' => '#C8102E',
-            'textColor' => '#FFFFFF',
-            'extendedProps' => ['type' => 'program']
-        ];
-    }
-} catch (PDOException $e) {}
-
-// 2. Active Projects → implementation date
-try {
-    $stmt = $pdo->query("
-        SELECT id, project_title, date_of_implementation
-        FROM project_entries
-        WHERE status = 'active'
-        AND date_of_implementation IS NOT NULL
-    ");
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $events[] = [
-            'title' => $row['project_title'] . ' (Project)',
-            'start' => date('Y-m-d', strtotime($row['date_of_implementation'])),
-            'url'   => "opmm/view_project.php?id={$row['id']}",
-            'color' => '#9B1C3A',
-            'textColor' => '#FFFFFF',
-            'extendedProps' => ['type' => 'project']
-        ];
-    }
-} catch (PDOException $e) {}
-
-// 3. Active Activities → implementation date
-try {
-    $stmt = $pdo->query("
-        SELECT id, activity_name, date_of_implementation
+        SELECT id, activity_name, implementation_start, implementation_end
         FROM activity_entries
         WHERE status = 'active'
-        AND date_of_implementation IS NOT NULL
+        AND implementation_start IS NOT NULL
+        AND implementation_end IS NOT NULL
     ");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $events[] = [
             'title' => $row['activity_name'] . ' (Activity)',
-            'start' => date('Y-m-d', strtotime($row['date_of_implementation'])),
+            'start' => $row['implementation_start'],
+            'end'   => date('Y-m-d', strtotime($row['implementation_end'] . ' +1 day')), // inclusive end
             'url'   => "opmm/view_activity.php?id={$row['id']}",
             'color' => '#6B7280',
             'textColor' => '#FFFFFF',
@@ -73,9 +32,11 @@ try {
             'extendedProps' => ['type' => 'activity']
         ];
     }
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+    // silent fail or log
+}
 
-// Existing due monitoring list
+// Your existing due monitoring list (kept as-is)
 $today = date('Y-m-d');
 $currentDayOfWeek = date('N');
 
@@ -107,6 +68,7 @@ try {
                 }
                 break;
             case 'quarterly':
+            case 'semi-annually':
             case 'annually':
             case 'as needed':
             case 'event-based':
@@ -145,6 +107,32 @@ try {
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border: 1px solid #E5E7EB;
         }
+        .fc-toolbar-chunk:first-child {
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            flex-wrap: nowrap !important;
+        }
+        .fc .fc-button-group {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+        }
+        .fc .fc-toolbar-chunk:first-child .fc-button {
+            padding: 6px 10px !important;
+            font-size: 0.9em !important;
+            min-width: 60px !important;
+            line-height: 1.4 !important;
+        }
+        .fc .fc-toolbar-chunk:first-child .fc-today-button {
+            background-color: #C8102E !important;
+            border-color: #C8102E !important;
+            color: white !important;
+            font-weight: 500 !important;
+        }
+        .fc .fc-toolbar-chunk:first-child .fc-today-button:hover {
+            background-color: #A30D26 !important;
+            border-color: #A30D26 !important;
+        }
         .fc .fc-button-primary {
             background-color: #C8102E;
             border-color: #C8102E;
@@ -175,6 +163,16 @@ try {
             color: #374151;
             font-weight: 600;
         }
+        @media (max-width: 576px) {
+            .fc-toolbar-chunk:first-child {
+                gap: 3px !important;
+            }
+            .fc .fc-toolbar-chunk:first-child .fc-button {
+                padding: 5px 8px !important;
+                font-size: 0.85em !important;
+                min-width: 50px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -197,7 +195,7 @@ try {
         <!-- Calendar -->
         <div id="calendar"></div>
 
-        <!-- Existing due monitoring list -->
+        <!-- Due monitoring list -->
         <p style="margin-top: 40px;">Items that may need attention based on monitoring frequency.</p>
 
         <?php if (empty($dueToday)): ?>

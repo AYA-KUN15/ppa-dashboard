@@ -17,7 +17,7 @@ if (!$id || !is_numeric($id)) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT project_id, activity_name, date_of_implementation,
+        SELECT project_id, activity_name, implementation_start, implementation_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, beneficiaries_json,
                status
@@ -122,7 +122,8 @@ try {
             <div class="program-details">
                 <p><strong>Parent Project:</strong> <?= htmlspecialchars($project['project_title'] ?? 'Unknown') ?></p>
                 <p><strong>Activity Name:</strong> <?= htmlspecialchars($activity['activity_name']) ?></p>
-                <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($activity['date_of_implementation']) ?></p>
+                <p><strong>Implementation Start:</strong> <?= htmlspecialchars($activity['implementation_start'] ?? 'N/A') ?></p>
+                <p><strong>Implementation End:</strong> <?= htmlspecialchars($activity['implementation_end'] ?? 'N/A') ?></p>
                 <p><strong>Type of Extension Service Agenda:</strong> <?= htmlspecialchars($activity['type_of_extension_service_agenda'] ?? 'N/A') ?></p>
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($activity['sdg_goals'] ?? 'N/A') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($activity['offices_involved'] ?? 'N/A') ?></p>
@@ -183,53 +184,53 @@ try {
 
     <script>
     // Beneficiaries summary – from current activity
-const rawJson = <?= json_encode($activity['beneficiaries_json'] ?? '[]') ?>;
-let beneficiariesJson = [];
+    const rawJson = <?= json_encode($activity['beneficiaries_json'] ?? '[]') ?>;
+    let beneficiariesJson = [];
 
-try {
-    beneficiariesJson = JSON.parse(rawJson);
-} catch (e) {
-    console.error('Failed to parse beneficiaries_json in view_activity:', e);
-    console.log('Raw value was:', rawJson);
-    beneficiariesJson = [];
-}
-
-const beneficiariesSpan = document.getElementById('view-beneficiaries');
-
-if (beneficiariesSpan) {
-    let summary = 'None added';
-    let total = 0;
-
-    if (Array.isArray(beneficiariesJson) && beneficiariesJson.length > 0) {
-        let parts = [];
-
-        beneficiariesJson.forEach(b => {
-            const typeText = (b.type || '').trim();
-            const male   = Number(b.male   || 0);
-            const female = Number(b.female || 0);
-
-            if (typeText) {
-                if (male > 0 || female > 0) {
-                    parts.push(`${typeText}: ${male} male, ${female} female`);
-                } else {
-                    parts.push(typeText);
-                }
-                total += male + female;
-            }
-        });
-
-        if (parts.length > 0) {
-            summary = parts.join(' | ');
-            if (total > 0) {
-                summary += ` | Total: ${total}`;
-            }
-        }
+    try {
+        beneficiariesJson = JSON.parse(rawJson);
+    } catch (e) {
+        console.error('Failed to parse beneficiaries_json in view_activity:', e);
+        console.log('Raw value was:', rawJson);
+        beneficiariesJson = [];
     }
 
-    beneficiariesSpan.textContent = summary;
-} else {
-    console.warn('Beneficiaries span element not found in view_activity');
-}
+    const beneficiariesSpan = document.getElementById('view-beneficiaries');
+
+    if (beneficiariesSpan) {
+        let summary = 'None added';
+        let total = 0;
+
+        if (Array.isArray(beneficiariesJson) && beneficiariesJson.length > 0) {
+            let parts = [];
+
+            beneficiariesJson.forEach(b => {
+                const typeText = (b.type || '').trim();
+                const male   = Number(b.male   || 0);
+                const female = Number(b.female || 0);
+
+                if (typeText) {
+                    if (male > 0 || female > 0) {
+                        parts.push(`${typeText}: ${male} male, ${female} female`);
+                    } else {
+                        parts.push(typeText);
+                    }
+                    total += male + female;
+                }
+            });
+
+            if (parts.length > 0) {
+                summary = parts.join(' | ');
+                if (total > 0) {
+                    summary += ` | Total: ${total}`;
+                }
+            }
+        }
+
+        beneficiariesSpan.textContent = summary;
+    } else {
+        console.warn('Beneficiaries span element not found in view_activity');
+    }
 
     // Delete photo handler (unchanged)
     document.querySelectorAll('.delete-photo-btn').forEach(btn => {

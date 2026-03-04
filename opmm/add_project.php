@@ -37,13 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $pdo->prepare("
                 INSERT INTO project_entries (
-                    program_id, project_title, date_of_implementation,
+                    program_id, project_title, implementation_start, implementation_end,
                     type_of_extension_service_agenda, sdg_goals,
                     offices_involved, programs_involved, beneficiaries_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
-                $d['program_id'], $d['project_title'], $d['date_of_implementation'],
+                $d['program_id'], $d['project_title'], $d['implementation_start'], $d['implementation_end'],
                 $d['type_of_extension_service_agenda'], $d['sdg_goals'],
                 $d['offices_involved'], $d['programs_involved'], $d['beneficiaries_json']
             ]);
@@ -56,25 +56,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         $project_title = trim($_POST['project_title'] ?? '');
-        $impl_month = trim($_POST['impl_month'] ?? '');
-        $impl_year = trim($_POST['impl_year'] ?? '');
-        $type_agenda = trim($_POST['type_agenda'] ?? '');
-        $sdg_goals = trim($_POST['sdg_goals'] ?? '');
-        $offices = trim($_POST['offices'] ?? '');
-        $programs = trim($_POST['programs'] ?? '');
+        $impl_start    = $_POST['implementation_start'] ?? '';
+        $impl_end      = $_POST['implementation_end'] ?? '';
+        $type_agenda   = trim($_POST['type_agenda'] ?? '');
+        $sdg_goals     = trim($_POST['sdg_goals'] ?? '');
+        $offices       = trim($_POST['offices'] ?? '');
+        $programs      = trim($_POST['programs'] ?? '');
         $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
-        if (empty($project_title) || empty($impl_month) || empty($impl_year) ||
+        if (empty($project_title) || empty($impl_start) || empty($impl_end) ||
             empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
             empty($programs) || $beneficiaries === '[]') {
             $error = 'Please fill all required fields.';
+        } elseif (strtotime($impl_end) < strtotime($impl_start)) {
+            $error = 'End date cannot be before start date.';
         } else {
-            $date_of_implementation = "$impl_month $impl_year";
-
             $_SESSION['pending_project'] = [
                 'program_id' => $program_id,
                 'project_title' => $project_title,
-                'date_of_implementation' => $date_of_implementation,
+                'implementation_start' => $impl_start,
+                'implementation_end' => $impl_end,
                 'type_of_extension_service_agenda' => $type_agenda,
                 'sdg_goals' => $sdg_goals,
                 'offices_involved' => $offices,
@@ -121,7 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div id="confirmation-box" class="confirmation-box">
                 <h2>Confirm Project Details</h2>
                 <p><strong>Project Title:</strong> <?= htmlspecialchars($d['project_title']) ?></p>
-                <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($d['date_of_implementation']) ?></p>
+                <p><strong>Implementation Start:</strong> <?= htmlspecialchars($d['implementation_start']) ?></p>
+                <p><strong>Implementation End:</strong> <?= htmlspecialchars($d['implementation_end']) ?></p>
                 <p><strong>Type of Extension Agenda:</strong> <?= htmlspecialchars($d['type_of_extension_service_agenda'] ?: 'None') ?></p>
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($d['sdg_goals'] ?: 'None') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices_involved'] ?: 'None') ?></p>
@@ -197,39 +199,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($_POST['beneficiaries'] ?? '[]') ?>">
 
-                <label>Date of Implementation *</label>
-                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                    <select name="impl_month" required style="flex: 1; min-width: 160px;">
-                        <option value="">Select Month</option>
-                        <?php
-                        $start = new DateTime($parent['duration_start']);
-                        $end = new DateTime($parent['duration_end']);
-                        $interval = new DateInterval('P1M');
-                        $period = new DatePeriod($start, $interval, $end->modify('+1 day'));
-                        $shownMonths = [];
-                        foreach ($period as $dt) {
-                            $month = $dt->format('F');
-                            if (!in_array($month, $shownMonths)) {
-                                $shownMonths[] = $month;
-                                $selected = ($month === ($_POST['impl_month'] ?? '')) ? 'selected' : '';
-                                echo "<option value=\"$month\" $selected>$month</option>";
-                            }
-                        }
-                        ?>
-                    </select>
-
-                    <select name="impl_year" required style="flex: 1; min-width: 120px;">
-                        <option value="">Select Year</option>
-                        <?php
-                        $startYear = (int) date('Y', strtotime($parent['duration_start']));
-                        $endYear = (int) date('Y', strtotime($parent['duration_end']));
-                        for ($y = $startYear; $y <= $endYear; $y++) {
-                            $selected = ($y == ($_POST['impl_year'] ?? '')) ? 'selected' : '';
-                            echo "<option value=\"$y\" $selected>$y</option>";
-                        }
-                        ?>
-                    </select>
-                </div>
+                <!-- Duration Range -->
+                <label>Implementation Duration *</label>
+<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+    <input type="date" 
+           name="implementation_start" 
+           value="<?= htmlspecialchars($isPost ? $_POST['implementation_start'] : ($edit ? $entry['implementation_start'] : '')) ?>" 
+           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+           required 
+           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+    <span>to</span>
+    <input type="date" 
+           name="implementation_end" 
+           value="<?= htmlspecialchars($isPost ? $_POST['implementation_end'] : ($edit ? $entry['implementation_end'] : '')) ?>" 
+           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+           required 
+           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+</div>
 
                 <button type="submit">Review & Add</button>
             </form>

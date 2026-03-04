@@ -17,7 +17,7 @@ if (!$id || !is_numeric($id)) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT program_id, project_title, date_of_implementation,
+        SELECT program_id, project_title, implementation_start, implementation_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, beneficiaries_json,
                status
@@ -37,10 +37,10 @@ try {
     $program = $progStmt->fetch(PDO::FETCH_ASSOC);
 
     $actStmt = $pdo->prepare("
-        SELECT id, activity_name, date_of_implementation, status
+        SELECT id, activity_name, implementation_start, implementation_end, status
         FROM activity_entries
         WHERE project_id = ?
-        ORDER BY date_of_implementation ASC
+        ORDER BY implementation_start ASC
     ");
     $actStmt->execute([$id]);
     $activities = $actStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -81,7 +81,13 @@ try {
             <div class="program-details">
                 <p><strong>Parent Program:</strong> <?= htmlspecialchars($program['title'] ?? 'Unknown') ?></p>
                 <p><strong>Project Title:</strong> <?= htmlspecialchars($project['project_title']) ?></p>
-                <p><strong>Date of Implementation:</strong> <?= htmlspecialchars($project['date_of_implementation']) ?></p>
+                <p><strong>Implementation Duration:</strong> 
+                    <?php
+                    $start = $project['implementation_start'] ? date('M d, Y', strtotime($project['implementation_start'])) : 'N/A';
+                    $end   = $project['implementation_end']   ? date('M d, Y', strtotime($project['implementation_end']))   : 'N/A';
+                    echo htmlspecialchars($start . ($end !== 'N/A' ? ' – ' . $end : ''));
+                    ?>
+                </p>
                 <p><strong>Type of Extension Service Agenda:</strong> <?= htmlspecialchars($project['type_of_extension_service_agenda'] ?? 'N/A') ?></p>
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($project['sdg_goals'] ?? 'N/A') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($project['offices_involved'] ?? 'N/A') ?></p>
@@ -113,7 +119,11 @@ try {
                                             onclick="window.location.href='view_activity.php?id=<?= $activity['id'] ?>'">
                                         <span class="quarter-btn-title"><?= htmlspecialchars($activity['activity_name']) ?></span>
                                         <span class="quarter-btn-subtitle">
-                                            <?= htmlspecialchars($activity['date_of_implementation']) ?>
+                                            <?php
+                                            $actStart = $activity['implementation_start'] ? date('M d, Y', strtotime($activity['implementation_start'])) : 'N/A';
+                                            $actEnd   = $activity['implementation_end']   ? date('M d, Y', strtotime($activity['implementation_end']))   : '';
+                                            echo htmlspecialchars($actStart . ($actEnd ? ' – ' . $actEnd : ''));
+                                            ?>
                                         </span>
                                     </button>
 
@@ -143,62 +153,62 @@ try {
     </main>
 
     <script>
-    // Beneficiaries summary - handles both JSON and plain text
-const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
+    // Beneficiaries summary – handles both JSON and plain text fallback
+    const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
 
-const beneficiariesSpan = document.getElementById('view-beneficiaries');
+    const beneficiariesSpan = document.getElementById('view-beneficiaries');
 
-if (beneficiariesSpan) {
-    let summary = 'None added';
-    
-    if (rawValue && rawValue.trim() !== '') {
-        let parsed = [];
+    if (beneficiariesSpan) {
+        let summary = 'None added';
         
-        // Try parsing as JSON first
-        try {
-            parsed = JSON.parse(rawValue);
-        } catch (e) {
-            console.log('Not valid JSON, treating as comma-separated string:', rawValue);
-            // Fallback: split plain text by comma
-            parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
-        }
+        if (rawValue && rawValue.trim() !== '') {
+            let parsed = [];
+            
+            // Try parsing as JSON first
+            try {
+                parsed = JSON.parse(rawValue);
+            } catch (e) {
+                console.log('Not valid JSON, treating as comma-separated string:', rawValue);
+                // Fallback: split plain text by comma
+                parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
+            }
 
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            let totalMale = 0;
-            let totalFemale = 0;
-            let parts = [];
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                let totalMale = 0;
+                let totalFemale = 0;
+                let parts = [];
 
-            parsed.forEach(item => {
-                const typeText = (item.type || item || '').trim();
-                const male   = Number(item.male   || 0);
-                const female = Number(item.female || 0);
+                parsed.forEach(item => {
+                    const typeText = (item.type || item || '').trim();
+                    const male   = Number(item.male   || 0);
+                    const female = Number(item.female || 0);
 
-                if (typeText) {
-                    if (male > 0 || female > 0) {
-                        parts.push(`${typeText}: ${male} male, ${female} female`);
-                        totalMale += male;
-                        totalFemale += female;
-                    } else {
-                        parts.push(typeText);
+                    if (typeText) {
+                        if (male > 0 || female > 0) {
+                            parts.push(`${typeText}: ${male} male, ${female} female`);
+                            totalMale += male;
+                            totalFemale += female;
+                        } else {
+                            parts.push(typeText);
+                        }
                     }
-                }
-            });
+                });
 
-            if (parts.length > 0) {
-                summary = parts.join(' | ');
-                if (totalMale + totalFemale > 0) {
-                    summary += ` | Total: ${totalMale + totalFemale} (M: ${totalMale}, F: ${totalFemale})`;
+                if (parts.length > 0) {
+                    summary = parts.join(' | ');
+                    if (totalMale + totalFemale > 0) {
+                        summary += ` | Total: ${totalMale + totalFemale} (M: ${totalMale}, F: ${totalFemale})`;
+                    }
                 }
             }
         }
+
+        beneficiariesSpan.textContent = summary;
+    } else {
+        console.warn('Beneficiaries span not found');
     }
 
-    beneficiariesSpan.textContent = summary;
-} else {
-    console.warn('Beneficiaries span not found');
-}
-
-    // Complete button handler (unchanged)
+    // Complete button handler
     document.querySelectorAll('.complete-icon-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();

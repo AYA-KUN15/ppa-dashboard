@@ -34,10 +34,10 @@ try {
     }
 
     $stmt = $pdo->prepare("
-        SELECT id, project_title, date_of_implementation, status
+        SELECT id, project_title, implementation_start, implementation_end, status
         FROM project_entries
         WHERE program_id = ?
-        ORDER BY date_of_implementation ASC
+        ORDER BY implementation_start ASC
     ");
     $stmt->execute([$id]);
     $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -115,7 +115,10 @@ try {
                                             onclick="window.location.href='view_project.php?id=<?= $project['id'] ?>'">
                                         <span class="quarter-btn-title"><?= htmlspecialchars($project['project_title']) ?></span>
                                         <span class="quarter-btn-subtitle">
-                                            <?= htmlspecialchars($project['date_of_implementation']) ?>
+                                            <?= htmlspecialchars($project['implementation_start'] ? date('M d, Y', strtotime($project['implementation_start'])) : 'N/A') ?>
+                                            <?php if ($project['implementation_end']): ?>
+                                                – <?= htmlspecialchars(date('M d, Y', strtotime($project['implementation_end']))) ?>
+                                            <?php endif; ?>
                                         </span>
                                     </button>
 

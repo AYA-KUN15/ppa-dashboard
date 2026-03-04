@@ -16,7 +16,7 @@ if (!$id || !is_numeric($id)) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT program_id, project_title, date_of_implementation,
+    SELECT program_id, project_title, implementation_start, implementation_end,
            type_of_extension_service_agenda, sdg_goals,
            offices_involved, programs_involved, beneficiaries_json
     FROM project_entries WHERE id = ?
@@ -43,50 +43,35 @@ if (!$parent) {
     die("Parent program not found.");
 }
 
-// Parse date for dropdown pre-selection
-$dateParts = explode(' ', trim($entry['date_of_implementation']));
-$impl_month_val = $dateParts[0] ?? '';
-$impl_year_val  = $dateParts[1] ?? '';
-
-// Current values (POST on error, else DB)
-$isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
-$project_title_val   = $isPost ? trim($_POST['project_title'] ?? '') : htmlspecialchars($entry['project_title'] ?? '');
-$type_agenda_val     = $isPost ? trim($_POST['type_agenda'] ?? '') : htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '');
-$sdg_goals_val       = $isPost ? trim($_POST['sdg_goals'] ?? '') : htmlspecialchars($entry['sdg_goals'] ?? '');
-$offices_val         = $isPost ? trim($_POST['offices'] ?? '') : htmlspecialchars($entry['offices_involved'] ?? '');
-$programs_val        = $isPost ? trim($_POST['programs'] ?? '') : htmlspecialchars($entry['programs_involved'] ?? '');
-$beneficiaries_val   = $isPost ? trim($_POST['beneficiaries'] ?? '') : htmlspecialchars($entry['beneficiaries_json'] ?? '');
-
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $project_title = trim($_POST['project_title'] ?? '');
-    $impl_month    = trim($_POST['impl_month'] ?? '');
-    $impl_year     = trim($_POST['impl_year'] ?? '');
+    $impl_start    = $_POST['implementation_start'] ?? '';
+    $impl_end      = $_POST['implementation_end'] ?? '';
     $type_agenda   = trim($_POST['type_agenda'] ?? '');
     $sdg_goals     = trim($_POST['sdg_goals'] ?? '');
     $offices       = trim($_POST['offices'] ?? '');
     $programs      = trim($_POST['programs'] ?? '');
     $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
-    if (empty($project_title) || empty($impl_month) || empty($impl_year) ||
+    if (empty($project_title) || empty($impl_start) || empty($impl_end) ||
         empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
         empty($programs) || $beneficiaries === '[]') {
         $error = 'Please fill all required fields (including at least one beneficiary).';
+    } elseif (strtotime($impl_end) < strtotime($impl_start)) {
+        $error = 'End date cannot be before start date.';
     } else {
-        $date_of_implementation = "$impl_month $impl_year";
-
         try {
             $stmt = $pdo->prepare("
                 UPDATE project_entries 
-                SET project_title = ?, date_of_implementation = ?,
+                SET project_title = ?, implementation_start = ?, implementation_end = ?,
                     type_of_extension_service_agenda = ?, sdg_goals = ?,
-                    offices_involved = ?, programs_involved = ?,
-                    beneficiaries_json = ?, updated_at = NOW()
+                    offices_involved = ?, programs_involved = ?, beneficiaries_json = ?, updated_at = NOW()
                 WHERE id = ?
             ");
             $stmt->execute([
-                $project_title, $date_of_implementation,
+                $project_title, $impl_start, $impl_end,
                 $type_agenda, $sdg_goals, $offices, $programs,
                 $beneficiaries, $id
             ]);
@@ -136,78 +121,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST">
             <label for="project_title">Project Title *</label>
-            <input type="text" id="project_title" name="project_title" value="<?= $project_title_val ?>" required>
+            <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($entry['project_title'] ?? '') ?>" required>
 
             <!-- Type -->
             <label>Type of Extension Service Agenda *</label>
             <button type="button" onclick="openModal('type-modal')">Select Types</button>
-            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($type_agenda_val ?: 'None selected') ?></div>
-            <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($type_agenda_val) ?>">
+            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '') ?>">
 
             <!-- SDG -->
             <label>Sustainable Development Goals *</label>
             <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($sdg_goals_val ?: 'None selected') ?></div>
-            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($sdg_goals_val) ?>">
+            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['sdg_goals'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($entry['sdg_goals'] ?? '') ?>">
 
             <!-- Offices -->
             <label>Offices Involved *</label>
             <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($offices_val ?: 'None selected') ?></div>
-            <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($offices_val) ?>">
+            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['offices_involved'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($entry['offices_involved'] ?? '') ?>">
 
             <!-- Programs -->
             <label>Programs Involved *</label>
             <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($programs_val ?: 'None selected') ?></div>
-            <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($programs_val) ?>">
+            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['programs_involved'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($entry['programs_involved'] ?? '') ?>">
 
             <!-- Beneficiaries -->
             <label>Beneficiaries *</label>
             <button type="button" onclick="openBeneficiariesModal()">Select Beneficiaries</button>
             <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
                 <?php
-                $json = $beneficiaries_val ?: '[]';
+                $json = $entry['beneficiaries_json'] ?? '[]';
                 $decoded = json_decode($json, true);
                 $count = is_array($decoded) ? count($decoded) : 0;
                 echo htmlspecialchars($count > 0 ? "$count type(s) selected" : 'None selected');
                 ?>
             </div>
-            <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($beneficiaries_val) ?>">
+            <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($entry['beneficiaries_json'] ?? '[]') ?>">
 
-            <label>Date of Implementation *</label>
-            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                <select name="impl_month" required style="flex: 1; min-width: 160px;">
-                    <option value="">Select Month</option>
-                    <?php
-                    $start = new DateTime($parent['duration_start']);
-                    $end = new DateTime($parent['duration_end']);
-                    $interval = new DateInterval('P1M');
-                    $period = new DatePeriod($start, $interval, $end->modify('+1 day'));
-                    $shownMonths = [];
-                    foreach ($period as $dt) {
-                        $month = $dt->format('F');
-                        if (!in_array($month, $shownMonths)) {
-                            $shownMonths[] = $month;
-                            $selected = ($month === $impl_month_val) ? 'selected' : '';
-                            echo "<option value=\"$month\" $selected>$month</option>";
-                        }
-                    }
-                    ?>
-                </select>
-
-                <select name="impl_year" required style="flex: 1; min-width: 120px;">
-                    <option value="">Select Year</option>
-                    <?php
-                    $startYear = (int) date('Y', strtotime($parent['duration_start']));
-                    $endYear = (int) date('Y', strtotime($parent['duration_end']));
-                    for ($y = $startYear; $y <= $endYear; $y++) {
-                        $selected = ($y == $impl_year_val) ? 'selected' : '';
-                        echo "<option value=\"$y\" $selected>$y</option>";
-                    }
-                    ?>
-                </select>
-            </div>
+            <!-- Duration Range -->
+            <label>Implementation Duration *</label>
+<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+    <input type="date" 
+           name="implementation_start" 
+           value="<?= htmlspecialchars($isPost ? $_POST['implementation_start'] : ($edit ? $entry['implementation_start'] : '')) ?>" 
+           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+           required 
+           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+    <span>to</span>
+    <input type="date" 
+           name="implementation_end" 
+           value="<?= htmlspecialchars($isPost ? $_POST['implementation_end'] : ($edit ? $entry['implementation_end'] : '')) ?>" 
+           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+           required 
+           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+</div>
 
             <button type="submit">Save Changes</button>
         </form>

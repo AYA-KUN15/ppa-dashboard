@@ -16,8 +16,8 @@ if (!$id || !is_numeric($id)) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT project_id, activity_name, date_of_implementation,
-           type_of_extension_service_agenda, sdg_goals,
+    SELECT project_id, activity_name, implementation_start, implementation_end,
+           type_of_extension_service_agenda, sdg_goals, frequency_monitoring,
            offices_involved, programs_involved, beneficiaries_json
     FROM activity_entries WHERE id = ?
 ");
@@ -31,7 +31,7 @@ if (!$entry) {
 $project_id = $entry['project_id'];
 
 $pStmt = $pdo->prepare("
-    SELECT project_title, date_of_implementation,
+    SELECT project_title, implementation_start, implementation_end,
            type_of_extension_service_agenda, sdg_goals,
            offices_involved, programs_involved, beneficiaries_json
     FROM project_entries WHERE id = ?
@@ -43,52 +43,62 @@ if (!$parent) {
     die("Parent project not found.");
 }
 
-// Parse current date for pre-fill
-$dateParts = explode(' ', trim($entry['date_of_implementation']));
-$impl_month_val = $dateParts[0] ?? '';
-$impl_day_val   = $dateParts[1] ?? '';
+// Determine parent month/year and single-month status
+$parentStart = $parent['implementation_start'];
+$parentEnd   = $parent['implementation_end'];
+$parentMonth = date('F', strtotime($parentStart));
+$parentYear  = date('Y', strtotime($parentStart));
+$isSingleMonth = (date('Y-m', strtotime($parentStart)) === date('Y-m', strtotime($parentEnd)));
 
-// Current values
-$isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
-$activity_name_val     = $isPost ? trim($_POST['activity_name'] ?? '') : htmlspecialchars($entry['activity_name'] ?? '');
-$type_agenda_val       = $isPost ? trim($_POST['type_agenda'] ?? '') : htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '');
-$sdg_goals_val         = $isPost ? trim($_POST['sdg_goals'] ?? '') : htmlspecialchars($entry['sdg_goals'] ?? '');
-$offices_val           = $isPost ? trim($_POST['offices'] ?? '') : htmlspecialchars($entry['offices_involved'] ?? '');
-$programs_val          = $isPost ? trim($_POST['programs'] ?? '') : htmlspecialchars($entry['programs_involved'] ?? '');
-$beneficiaries_val     = $isPost ? trim($_POST['beneficiaries'] ?? '') : htmlspecialchars($entry['beneficiaries_json'] ?? '');
+// Days in parent month
+$daysInMonth = cal_days_in_month(CAL_GREGORIAN, date('n', strtotime($parentStart)), $parentYear);
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $activity_name = trim($_POST['activity_name'] ?? '');
-    $impl_month    = trim($_POST['impl_month'] ?? '');
-    $impl_day      = (int)($_POST['impl_day'] ?? 0);
     $type_agenda   = trim($_POST['type_agenda'] ?? '');
     $sdg_goals     = trim($_POST['sdg_goals'] ?? '');
+    $frequency_monitoring = trim($_POST['frequency_monitoring'] ?? '');
     $offices       = trim($_POST['offices'] ?? '');
     $programs      = trim($_POST['programs'] ?? '');
     $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
-    if (empty($activity_name) || empty($impl_month) || $impl_day < 1 || $impl_day > 31 ||
-        empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
-        empty($programs) || $beneficiaries === '[]') {
-        $error = 'Please fill all required fields (including at least one beneficiary).';
+    // Start
+    $start_day = (int)($_POST['start_day'] ?? 0);
+
+    // End (optional in single-month)
+    $end_day = (int)($_POST['end_day'] ?? 0);
+
+    if (empty($activity_name) || $start_day < 1 || $start_day > $daysInMonth ||
+        empty($type_agenda) || empty($sdg_goals) || empty($frequency_monitoring) ||
+        empty($offices) || empty($programs) || $beneficiaries === '[]') {
+        $error = 'Please fill all required fields. Start day must be between 1 and ' . $daysInMonth . ' for ' . $parentMonth . '.';
+    } elseif (!$isSingleMonth && ($end_day < 1 || $end_day > $daysInMonth)) {
+        $error = 'End day must be between 1 and ' . $daysInMonth . '.';
+    } elseif (!$isSingleMonth && $end_day < $start_day) {
+        $error = 'End day cannot be before start day in the same month.';
     } else {
-        $date_of_implementation = "$impl_month $impl_day";
+        $startDate = date('Y-m-d', strtotime("$parentMonth $start_day $parentYear"));
+
+        if ($isSingleMonth && $end_day === 0) {
+            $endDate = $startDate;
+        } else {
+            $endDate = date('Y-m-d', strtotime("$parentMonth $end_day $parentYear"));
+        }
 
         try {
             $stmt = $pdo->prepare("
                 UPDATE activity_entries 
-                SET activity_name = ?, date_of_implementation = ?,
-                    type_of_extension_service_agenda = ?, sdg_goals = ?,
-                    offices_involved = ?, programs_involved = ?,
-                    beneficiaries_json = ?, updated_at = NOW()
+                SET activity_name = ?, implementation_start = ?, implementation_end = ?,
+                    type_of_extension_service_agenda = ?, sdg_goals = ?, frequency_monitoring = ?,
+                    offices_involved = ?, programs_involved = ?, beneficiaries_json = ?, updated_at = NOW()
                 WHERE id = ?
             ");
             $stmt->execute([
-                $activity_name, $date_of_implementation,
-                $type_agenda, $sdg_goals, $offices, $programs,
-                $beneficiaries, $id
+                $activity_name, $startDate, $endDate,
+                $type_agenda, $sdg_goals, $frequency_monitoring,
+                $offices, $programs, $beneficiaries, $id
             ]);
 
             if ($stmt->rowCount() > 0) {
@@ -136,61 +146,133 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST">
             <label for="activity_name">Activity Name *</label>
-            <input type="text" id="activity_name" name="activity_name" value="<?= $activity_name_val ?>" required>
+            <input type="text" id="activity_name" name="activity_name" value="<?= htmlspecialchars($entry['activity_name'] ?? '') ?>" required>
 
             <!-- Type -->
             <label>Type of Extension Service Agenda *</label>
             <button type="button" onclick="openModal('type-modal')">Select Types</button>
-            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($type_agenda_val ?: 'None selected') ?></div>
-            <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($type_agenda_val) ?>">
+            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '') ?>">
 
             <!-- SDG -->
             <label>Sustainable Development Goals *</label>
             <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($sdg_goals_val ?: 'None selected') ?></div>
-            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($sdg_goals_val) ?>">
+            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['sdg_goals'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($entry['sdg_goals'] ?? '') ?>">
+
+            <!-- Frequency of Monitoring -->
+            <label>Frequency of Monitoring *</label>
+            <select name="frequency_monitoring" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 400px;">
+                <option value="">Select Frequency</option>
+                <option value="Monthly"    <?= ($entry['frequency_monitoring'] ?? '') === 'Monthly'    ? 'selected' : '' ?>>Monthly</option>
+                <option value="Quarterly"  <?= ($entry['frequency_monitoring'] ?? '') === 'Quarterly'  ? 'selected' : '' ?>>Quarterly</option>
+                <option value="Semi-Annually" <?= ($entry['frequency_monitoring'] ?? '') === 'Semi-Annually' ? 'selected' : '' ?>>Semi-Annually</option>
+                <option value="Annually"   <?= ($entry['frequency_monitoring'] ?? '') === 'Annually'   ? 'selected' : '' ?>>Annually</option>
+            </select>
 
             <!-- Offices -->
             <label>Offices Involved *</label>
             <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($offices_val ?: 'None selected') ?></div>
-            <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($offices_val) ?>">
+            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['offices_involved'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($entry['offices_involved'] ?? '') ?>">
 
             <!-- Programs -->
             <label>Programs Involved *</label>
             <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($programs_val ?: 'None selected') ?></div>
-            <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($programs_val) ?>">
+            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
+                <?= htmlspecialchars($entry['programs_involved'] ?? 'None') ?>
+            </div>
+            <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($entry['programs_involved'] ?? '') ?>">
 
             <!-- Beneficiaries -->
             <label>Beneficiaries *</label>
             <button type="button" onclick="openBeneficiariesModal()">Select Beneficiaries</button>
             <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
                 <?php
-                $json = $beneficiaries_val ?: '[]';
+                $json = $entry['beneficiaries_json'] ?? '[]';
                 $decoded = json_decode($json, true);
                 $count = is_array($decoded) ? count($decoded) : 0;
                 echo htmlspecialchars($count > 0 ? "$count type(s) selected" : 'None selected');
                 ?>
             </div>
-            <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($beneficiaries_val) ?>">
+            <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($entry['beneficiaries_json'] ?? '[]') ?>">
 
-            <label>Date of Implementation *</label>
-            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                <select name="impl_month" required style="flex: 1; min-width: 160px;">
-                    <option value="">Select Month</option>
-                    <?php
-                    $months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                    foreach ($months as $m) {
-                        $selected = ($m === $impl_month_val) ? 'selected' : '';
-                        echo "<option value=\"$m\" $selected>$m</option>";
-                    }
-                    ?>
-                </select>
+            <!-- Implementation Duration -->
+            <label>Implementation Duration *</label>
+            <div style="display: flex; flex-direction: column; gap: 16px; max-width: 500px;">
 
-                <input type="number" name="impl_day" min="1" max="31" 
-                       placeholder="Day" value="<?= htmlspecialchars($impl_day_val) ?>" required 
-                       style="flex: 1; min-width: 120px;" />
+                <!-- Start -->
+                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-weight: 500; min-width: 60px;">Start:</span>
+
+                    <?php if ($isSingleMonth): ?>
+                        <input type="text" value="<?= htmlspecialchars($parentMonth) ?>" readonly 
+                               style="flex: 1; min-width: 140px; background: #f0f0f0; cursor: not-allowed; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                        <input type="number" name="start_day" min="1" max="<?= $daysInMonth ?>" 
+                               placeholder="Day" value="<?= htmlspecialchars(date('j', strtotime($entry['implementation_start']))) ?>" required 
+                               style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                    <?php else: ?>
+                        <select name="start_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="">Month</option>
+                            <?php
+                            $shownMonths = [];
+                            $pStart = new DateTime($parent['implementation_start']);
+                            $pEnd   = new DateTime($parent['implementation_end']);
+                            $interval = new DateInterval('P1M');
+                            $period = new DatePeriod($pStart, $interval, $pEnd->modify('+1 day'));
+                            foreach ($period as $dt) {
+                                $month = $dt->format('F');
+                                if (!in_array($month, $shownMonths)) {
+                                    $shownMonths[] = $month;
+                                    $selected = ($month === date('F', strtotime($entry['implementation_start']))) ? 'selected' : '';
+                                    echo "<option value=\"$month\" $selected>$month</option>";
+                                }
+                            }
+                            ?>
+                        </select>
+                        <input type="number" name="start_day" min="1" max="31" 
+                               placeholder="Day" value="<?= htmlspecialchars(date('j', strtotime($entry['implementation_start']))) ?>" required 
+                               style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                    <?php endif; ?>
+                </div>
+
+                <!-- End -->
+                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-weight: 500; min-width: 60px;">End:</span>
+
+                    <?php if ($isSingleMonth): ?>
+                        <input type="text" value="<?= htmlspecialchars($parentMonth) ?>" readonly 
+                               style="flex: 1; min-width: 140px; background: #f0f0f0; cursor: not-allowed; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                        <input type="number" name="end_day" min="1" max="<?= $daysInMonth ?>" 
+                               placeholder="Day (optional)" value="<?= htmlspecialchars(date('j', strtotime($entry['implementation_end']))) ?>" 
+                               style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                        <small style="color: #6b7280; font-size: 0.85rem;">(leave blank to use same day as start)</small>
+                    <?php else: ?>
+                        <select name="end_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="">Month</option>
+                            <?php
+                            $shownMonths = [];
+                            foreach ($period as $dt) {
+                                $month = $dt->format('F');
+                                if (!in_array($month, $shownMonths)) {
+                                    $shownMonths[] = $month;
+                                    $selected = ($month === date('F', strtotime($entry['implementation_end']))) ? 'selected' : '';
+                                    echo "<option value=\"$month\" $selected>$month</option>";
+                                }
+                            }
+                            ?>
+                        </select>
+                        <input type="number" name="end_day" min="1" max="31" 
+                               placeholder="Day" value="<?= htmlspecialchars(date('j', strtotime($entry['implementation_end']))) ?>" required 
+                               style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                    <?php endif; ?>
+                </div>
             </div>
 
             <button type="submit">Save Changes</button>
@@ -360,7 +442,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         rowsDiv.innerHTML = '';
 
         const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-        const currentJson = <?= json_encode($beneficiaries_val) ?>;
+        const currentJson = <?= json_encode($entry['beneficiaries_json'] ?? '[]') ?>;
 
         let parentEntries = [];
         let currentEntries = [];

@@ -783,3 +783,34 @@ body.modal-open {
 .back-btn:hover {
     background: #4b5563;
 }
+
+/* Consistent duration input style (same as program duration) */
+.duration-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.duration-group input[type="date"] {
+    flex: 1;
+    min-width: 160px;               /* same as program */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;                /* match program */
+    background: white;
+}
+
+.duration-group span {
+    font-size: 1rem;
+    color: #374151;
+    white-space: nowrap;
+}
+
+/* Optional: make inputs look even cleaner on focus */
+.duration-group input[type="date"]:focus {
+    outline: none;
+    border-color: #c8102e;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+}
