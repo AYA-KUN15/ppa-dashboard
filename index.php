@@ -85,13 +85,12 @@ try {
 }
 
 $nav_links = [
-    ['url' => '../index.php', 'label' => 'Home', 'active' => false],
-    ['url' => 'list.php',     'label' => 'PPA',  'active' => true],
+    ['url' => 'index.php',          'label' => 'Home', 'active' => true],
+    ['url' => 'opmm/list.php',      'label' => 'PPA',  'active' => false],
 ];
 
+include 'includes/header.php';
 ?>
-
-<?php include '../includes/header.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">

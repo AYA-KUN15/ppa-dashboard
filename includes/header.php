@@ -1,15 +1,18 @@
 <?php
 // ../includes/header.php
 
+// Define once here – change if you ever move the project folder
+define('BASE_URL', '/opmm-dashboard/');
+
 // Make sure version is defined (you can move this to config if preferred)
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '8.2 Alpha');  // ← change this line only when version updates
+    define('APP_VERSION', '8.3 Alpha');  // ← change this line only when version updates
 }
 ?>
 
 <header class="top-bar">
     <div class="logo-container">
-        <img src="../assets/bsu-logo.jpg" alt="BatStateU Logo" class="logo">
+        <img src="<?= BASE_URL ?>assets/bsu-logo.jpg" alt="BatStateU Logo" class="logo">
         <span class="logo-text">
             PPA Dashboard
             <small style="font-size: 0.72rem; color: #ffffff; margin-left: 8px; vertical-align: middle; font-weight: 400;">
