@@ -82,7 +82,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
         }
     }
 }
+
+$nav_links = [
+    ['url' => '../index.php', 'label' => 'Home', 'active' => false],
+    ['url' => 'list.php',     'label' => 'PPA',  'active' => false],
+];
+
 ?>
+
+<?php include '../includes/header.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -94,18 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-
-    <header class="top-bar">
-        <div class="logo-container">
-            <img src="../assets/bsu-logo.jpg" alt="BatStateU Logo" class="logo">
-            <span class="logo-text">PPA Dashboard</span>
-        </div>
-        <nav class="main-nav">
-            <a href="../index.php" class="nav-button">Home</a>
-            <a href="list.php" class="nav-button">PPA</a>
-            <a href="../logout.php" class="nav-button logout">Logout</a>
-        </nav>
-    </header>
 
     <main class="dashboard-content">
         <h1>Edit Program</h1>

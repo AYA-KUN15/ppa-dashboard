@@ -47,7 +47,15 @@ try {
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
+
+$nav_links = [
+    ['url' => '../index.php', 'label' => 'Home', 'active' => false],
+    ['url' => 'view.php?id=' . $project['program_id'], 'label' => 'Program', 'active' => false],
+];
+
 ?>
+
+<?php include '../includes/header.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -59,18 +67,6 @@ try {
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-
-    <header class="top-bar">
-        <div class="logo-container">
-            <img src="../assets/bsu-logo.jpg" alt="BSU Logo" class="logo">
-            <span class="logo-text">PPA Dashboard</span>
-        </div>
-        <nav class="main-nav">
-            <a href="../index.php" class="nav-button">Home</a>
-            <a href="view.php?id=<?= htmlspecialchars($project['program_id']) ?>" class="nav-button">Program</a>
-            <a href="../logout.php" class="nav-button logout">Logout</a>
-        </nav>
-    </header>
 
     <main class="dashboard-content">
         <?php if (isset($error)): ?>
