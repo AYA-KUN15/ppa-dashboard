@@ -102,6 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($stmt->rowCount() > 0) {
+                // Force reset to active after successful edit
+                $resetStmt = $pdo->prepare("UPDATE activity_entries SET status = 'active', updated_at = NOW() WHERE id = ?");
+                $resetStmt->execute([$id]);
+
                 header("Location: view_project.php?id={$project_id}&success=updated");
                 exit;
             } else {

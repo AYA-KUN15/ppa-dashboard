@@ -77,6 +77,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($stmt->rowCount() > 0) {
+                // Force reset to active after successful edit
+                $resetStmt = $pdo->prepare("UPDATE project_entries SET status = 'active', updated_at = NOW() WHERE id = ?");
+                $resetStmt->execute([$id]);
+
                 header("Location: view.php?id={$program_id}&success=updated");
                 exit;
             } else {
@@ -166,23 +170,23 @@ $nav_links = [
 
             <!-- Duration Range -->
             <label>Implementation Duration *</label>
-<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-    <input type="date" 
-           name="implementation_start" 
-           value="<?= htmlspecialchars($isPost ? $_POST['implementation_start'] : ($edit ? $entry['implementation_start'] : '')) ?>" 
-           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
-           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
-           required 
-           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-    <span>to</span>
-    <input type="date" 
-           name="implementation_end" 
-           value="<?= htmlspecialchars($isPost ? $_POST['implementation_end'] : ($edit ? $entry['implementation_end'] : '')) ?>" 
-           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
-           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
-           required 
-           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-</div>
+            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                <input type="date" 
+                       name="implementation_start" 
+                       value="<?= htmlspecialchars($entry['implementation_start'] ?? '') ?>" 
+                       min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+                       max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+                       required 
+                       style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                <span>to</span>
+                <input type="date" 
+                       name="implementation_end" 
+                       value="<?= htmlspecialchars($entry['implementation_end'] ?? '') ?>" 
+                       min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+                       max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+                       required 
+                       style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+            </div>
 
             <button type="submit">Save Changes</button>
         </form>
@@ -351,7 +355,7 @@ $nav_links = [
         rowsDiv.innerHTML = '';
 
         const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-        const currentJson = <?= json_encode($beneficiaries_val) ?>;
+        const currentJson = <?= json_encode($entry['beneficiaries_json'] ?? '[]') ?>;
 
         let parentEntries = [];
         let currentEntries = [];

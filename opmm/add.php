@@ -366,6 +366,7 @@ $nav_links = [
         </div>
     </div>
 
+    <!-- Beneficiaries Modal -->
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
@@ -400,22 +401,37 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-open');
 }
 
+/* ===============================
+   FIXED MODAL SELECTION HANDLER
+================================= */
 function saveModalSelections(type) {
     const modal = document.getElementById(type + '-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
     const values = Array.from(checkboxes).map(cb => cb.value.trim());
+
     const hidden = document.getElementById(type + '-hidden');
-    const display = document.getElementById('selected-' + type);
+
+    let displayId = '';
+    if (type === 'type') displayId = 'selected-types';
+    if (type === 'sdg') displayId = 'selected-sdgs';
+    if (type === 'source') displayId = 'selected-source';
+
+    const display = document.getElementById(displayId);
 
     if (hidden) {
         hidden.value = values.join(', ');
     }
+
     if (display) {
-        display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+        display.textContent = values.length ? values.join(', ') : 'None selected';
     }
+
     closeModal(type + '-modal');
 }
 
+/* ===============================
+   BENEFICIARIES
+================================= */
 function addBeneficiaryRow(type = '', male = 0, female = 0) {
     const container = document.getElementById('beneficiary-rows');
     const row = document.createElement('div');
@@ -480,21 +496,51 @@ function saveBeneficiaries() {
 
     let summary = '';
     let total = 0;
+
     data.forEach(b => {
         summary += `${b.type}: ${b.male} male, ${b.female} female | `;
         total += b.male + b.female;
     });
-    summary += `Total: ${total}`;
-    document.getElementById('selected-beneficiaries').textContent = summary || 'None added';
+
+    summary += total > 0 ? `Total: ${total}` : '';
+
+    document.getElementById('selected-beneficiaries').textContent = summary.trim();
 
     closeModal('beneficiaries-modal');
 }
 
-window.addEventListener('load', () => {
+/* ===============================
+   PAGE LOAD INITIALIZATION
+================================= */
+window.addEventListener('load', function() {
+
+    // TYPE
+    const typeHidden = document.getElementById('type-hidden');
+    if (typeHidden && typeHidden.value) {
+        document.getElementById('selected-types').textContent = typeHidden.value;
+    }
+
+    // SDG
+    const sdgHidden = document.getElementById('sdg-hidden');
+    if (sdgHidden && sdgHidden.value) {
+        document.getElementById('selected-sdgs').textContent = sdgHidden.value;
+    }
+
+    // SOURCE
+    const sourceHidden = document.getElementById('source-hidden');
+    if (sourceHidden && sourceHidden.value) {
+        document.getElementById('selected-source').textContent = sourceHidden.value;
+    }
+
+    // BENEFICIARIES
     const json = document.getElementById('beneficiaries-json')?.value || '[]';
-    const data = JSON.parse(json);
-    data.forEach(b => addBeneficiaryRow(b.type, b.male, b.female));
-    saveBeneficiaries();
+    try {
+        const data = JSON.parse(json);
+        data.forEach(b => addBeneficiaryRow(b.type, b.male, b.female));
+        saveBeneficiaries();
+    } catch (e) {
+        console.error('Invalid beneficiaries JSON on load:', e);
+    }
 });
 </script>
 </body>
