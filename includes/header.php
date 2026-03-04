@@ -3,7 +3,7 @@
 
 // Make sure version is defined (you can move this to config if preferred)
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '8.1 Alpha');  // ← change this line only when version updates
+    define('APP_VERSION', '8.2 Alpha');  // ← change this line only when version updates
 }
 ?>
 

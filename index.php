@@ -83,7 +83,15 @@ try {
 } catch (PDOException $e) {
     $dueToday = [];
 }
+
+$nav_links = [
+    ['url' => '../index.php', 'label' => 'Home', 'active' => false],
+    ['url' => 'list.php',     'label' => 'PPA',  'active' => true],
+];
+
 ?>
+
+<?php include '../includes/header.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -176,18 +184,6 @@ try {
     </style>
 </head>
 <body>
-
-    <header class="top-bar">
-        <div class="logo-container">
-            <img src="assets/bsu-logo.jpg" alt="BSU Logo" class="logo">
-            <span class="logo-text">PPA Dashboard</span>
-        </div>
-        <nav class="main-nav">
-            <a href="index.php" class="nav-button active">Home</a>
-            <a href="opmm/list.php" class="nav-button">PPA</a>
-            <a href="logout.php" class="nav-button logout">Logout</a>
-        </nav>
-    </header>
 
     <main class="dashboard-content">
         <h1>PPA Monitoring Dashboard</h1>
