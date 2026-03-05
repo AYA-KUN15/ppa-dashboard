@@ -21,7 +21,7 @@ try {
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, partner_agencies,
-               beneficiaries_json
+               beneficiaries_json, source_of_fund
         FROM program_entries
         WHERE id = ?
     ");
@@ -89,7 +89,79 @@ $nav_links = [
     <title>View Program - <?= htmlspecialchars($program['title'] ?? 'Program') ?></title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
+
+    <style>
+        /* Flex layout for quarter-item (same as list.php & view_project.php) */
+        .quarter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .quarter-btn {
+            flex: 1;
+            padding: 14px 20px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            box-sizing: border-box;
+        }
+
+        .quarter-btn-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .quarter-btn-subtitle {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        /* Edit icon - same width fix as list.php */
+        .edit-icon-btn {
+            flex: 0 0 42px;
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .edit-icon-btn .material-icons {
+            font-size: 1.6rem;
+            color: #6b7280;
+        }
+
+        .edit-icon-btn:hover {
+            color: #c8102e;
+            background: rgba(200, 16, 46, 0.1);
+        }
+
+        /* Completed green style (if needed for projects in future) */
+        .quarter-btn.completed-project {
+            background: #ecfdf5 !important;
+            border: 2px solid #10b981 !important;
+            color: #065f46 !important;
+        }
+
+        .quarter-btn.completed-project:hover {
+            background: #d1fae5 !important;
+            border-color: #059669 !important;
+        }
+    </style>
 </head>
+
 <body>
 
     <main class="dashboard-content">
@@ -109,6 +181,7 @@ $nav_links = [
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($program['offices_involved'] ?? 'N/A') ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($program['programs_involved'] ?? 'N/A') ?></p>
                 <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($program['partner_agencies'] ?? 'N/A') ?></p>
+                <p><strong>Source of Fund:</strong> <?= htmlspecialchars($program['source_of_fund'] ?? 'N/A') ?></p>
                 <p><strong>Beneficiaries:</strong> 
                     <?php
                     $benefs = json_decode($program['beneficiaries_json'] ?? '[]', true);
@@ -159,6 +232,12 @@ $nav_links = [
                                             <?= htmlspecialchars(date('M d, Y', strtotime($proj['implementation_start']))) ?> – 
                                             <?= htmlspecialchars(date('M d, Y', strtotime($proj['implementation_end']))) ?>
                                         </span>
+                                    </button>
+
+                                    <button class="action-icon edit-icon-btn" 
+                                            onclick="window.location.href='edit_project.php?id=<?= $proj['id'] ?>'"
+                                            title="Edit project">
+                                        <span class="material-icons">edit</span>
                                     </button>
                                 </div>
                             <?php endforeach; ?>

@@ -116,6 +116,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+$nav_links = [
+    ['url' => '../index.php',                    'label' => 'Home',    'active' => false],
+    ['url' => 'view_project.php?id=' . $project_id, 'label' => 'Project', 'active' => false],
+];
 ?>
 
 <!DOCTYPE html>

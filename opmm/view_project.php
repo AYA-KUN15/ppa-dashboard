@@ -79,7 +79,82 @@ $nav_links = [
     <title>View Project - <?= htmlspecialchars($project['project_title'] ?? 'Project') ?></title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
+
+    <style>
+        /* Layout fix: flex row + fixed icon width (same as your working list.php) */
+        .quarter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .quarter-btn {
+            flex: 1;
+            padding: 14px 20px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            box-sizing: border-box;
+        }
+
+        .quarter-btn-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .quarter-btn-subtitle {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        /* Icons - fixed width, transparent */
+        .edit-icon-btn,
+        .complete-icon-btn {
+            flex: 0 0 42px;
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .edit-icon-btn .material-icons,
+        .complete-icon-btn .material-icons {
+            font-size: 1.6rem;
+            color: #6b7280;
+        }
+
+        .edit-icon-btn:hover,
+        .complete-icon-btn:hover {
+            color: #c8102e;
+            background: rgba(200, 16, 46, 0.1);
+        }
+
+        /* Completed green */
+        .quarter-btn.completed-project {
+            background: #ecfdf5 !important;
+            border: 2px solid #10b981 !important;
+            color: #065f46 !important;
+        }
+
+        .quarter-btn.completed-project:hover {
+            background: #d1fae5 !important;
+            border-color: #059669 !important;
+        }
+    </style>
 </head>
+
 <body>
 
     <main class="dashboard-content">
@@ -107,6 +182,7 @@ $nav_links = [
                     $benefs = json_decode($project['beneficiaries_json'] ?? '[]', true);
                     if (is_array($benefs) && !empty($benefs)) {
                         $parts = [];
+                        $total = 0;
                         foreach ($benefs as $b) {
                             $type = htmlspecialchars($b['type'] ?? 'Unnamed');
                             $m = (int)($b['male'] ?? 0);
@@ -114,8 +190,13 @@ $nav_links = [
                             $line = $type;
                             if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
                             $parts[] = $line;
+                            $total += $m + $f;
                         }
-                        echo implode(' | ', $parts);
+                        $summary = implode(' | ', $parts);
+                        if ($total > 0) {
+                            $summary .= " | Total: $total";
+                        }
+                        echo $summary;
                     } else {
                         echo 'None added';
                     }
@@ -141,7 +222,7 @@ $nav_links = [
                     <div class="quarter-scroll-container">
                         <div class="quarter-buttons">
                             <?php foreach ($activities as $activity): ?>
-                                <div class="quarter-item <?= ($activity['status'] !== 'active') ? 'completed' : '' ?>">
+                                <div class="quarter-item">
                                     <button class="quarter-btn <?= ($activity['status'] !== 'active') ? 'completed-project' : '' ?>" 
                                             onclick="window.location.href='view_activity.php?id=<?= $activity['id'] ?>'">
                                         <span class="quarter-btn-title"><?= htmlspecialchars($activity['activity_name']) ?></span>
@@ -180,7 +261,7 @@ $nav_links = [
     </main>
 
     <script>
-    // Beneficiaries summary – handles both JSON and plain text fallback
+    // Beneficiaries summary (unchanged - already has total)
     const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
 
     const beneficiariesSpan = document.getElementById('view-beneficiaries');
@@ -222,7 +303,7 @@ $nav_links = [
                 if (parts.length > 0) {
                     summary = parts.join(' | ');
                     if (totalMale + totalFemale > 0) {
-                        summary += ` | Total: ${totalMale + totalFemale} (M: ${totalMale}, F: ${totalFemale})`;
+                        summary += ` | Total: ${totalMale + totalFemale}`;
                     }
                 }
             }
@@ -233,7 +314,7 @@ $nav_links = [
         console.warn('Beneficiaries span not found');
     }
 
-    // Complete button handler with visual feedback
+    // Complete button handler (unchanged)
     document.querySelectorAll('.complete-icon-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
