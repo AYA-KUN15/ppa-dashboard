@@ -1,5 +1,4 @@
 <?php
-// view.php - View Program Details + List of Projects
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -10,8 +9,9 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once '../config/db.php';
 
 $id = $_GET['id'] ?? null;
+$mode = $_GET['mode'] ?? 'program';
 
-if (!$id || !is_numeric($id)) {
+if (!$id || !is_numeric($id) || $mode !== 'program') {
     header("Location: list.php");
     exit;
 }
@@ -19,9 +19,9 @@ if (!$id || !is_numeric($id)) {
 try {
     $stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
-               type_of_extension_service_agenda, sdg_goals, offices_involved,
-               programs_involved, partner_agencies, beneficiaries_json,
-               total_cost, source_of_fund, status
+               type_of_extension_service_agenda, sdg_goals,
+               offices_involved, programs_involved, partner_agencies,
+               beneficiaries_json
         FROM program_entries
         WHERE id = ?
     ");
@@ -33,21 +33,48 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT id, project_title, implementation_start, implementation_end, status
-        FROM project_entries
-        WHERE program_id = ?
+    // Derive program status from projects
+    $projStmt = $pdo->prepare("SELECT id FROM project_entries WHERE program_id = ?");
+    $projStmt->execute([$id]);
+    $projects = $projStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $programStatus = 'active';
+    if (!empty($projects)) {
+        $allProjCompleted = true;
+        foreach ($projects as $proj) {
+            $actStmt = $pdo->prepare("
+                SELECT COUNT(*) AS total, 
+                       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+                FROM activity_entries WHERE project_id = ?
+            ");
+            $actStmt->execute([$proj['id']]);
+            $counts = $actStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($counts['total'] > 0 && $counts['completed'] != $counts['total']) {
+                $allProjCompleted = false;
+                break;
+            }
+        }
+        if ($allProjCompleted) {
+            $programStatus = 'completed';
+        }
+    }
+
+    // Fetch projects for list
+    $projListStmt = $pdo->prepare("
+        SELECT id, project_title, implementation_start, implementation_end
+        FROM project_entries WHERE program_id = ?
         ORDER BY implementation_start ASC
     ");
-    $stmt->execute([$id]);
-    $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $projListStmt->execute([$id]);
+    $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
 
 $nav_links = [
     ['url' => '../index.php', 'label' => 'Home', 'active' => false],
-    ['url' => 'list.php',     'label' => 'PPA',  'active' => false],
+    ['url' => 'list.php', 'label' => 'PPA', 'active' => false],
 ];
 
 ?>
@@ -77,18 +104,36 @@ $nav_links = [
                     <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_start']))) ?> – 
                     <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_end']))) ?>
                 </p>
-                <p><strong>Type:</strong> <?= htmlspecialchars($program['type_of_extension_service_agenda'] ?? 'N/A') ?></p>
+                <p><strong>Type of Extension Service Agenda:</strong> <?= htmlspecialchars($program['type_of_extension_service_agenda'] ?? 'N/A') ?></p>
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($program['sdg_goals'] ?? 'N/A') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($program['offices_involved'] ?? 'N/A') ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($program['programs_involved'] ?? 'N/A') ?></p>
-                <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($program['partner_agencies'] ?: 'None') ?></p>
-                <p><strong>Beneficiaries:</strong> <span id="view-beneficiaries"></span></p>
-                <p><strong>Total Cost:</strong> ₱<?= number_format($program['total_cost'] ?? 0, 2) ?></p>
-                <p><strong>Source of Fund:</strong> <?= htmlspecialchars($program['source_of_fund'] ?: 'N/A') ?></p>
+                <p><strong>Partner Agencies:</strong> <?= htmlspecialchars($program['partner_agencies'] ?? 'N/A') ?></p>
+                <p><strong>Beneficiaries:</strong> 
+                    <?php
+                    $benefs = json_decode($program['beneficiaries_json'] ?? '[]', true);
+                    if (is_array($benefs) && !empty($benefs)) {
+                        $parts = [];
+                        $total = 0;
+                        foreach ($benefs as $b) {
+                            $type = htmlspecialchars($b['type'] ?? 'Unnamed');
+                            $m = (int)($b['male'] ?? 0);
+                            $f = (int)($b['female'] ?? 0);
+                            $line = $type;
+                            if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
+                            $parts[] = $line;
+                            $total += $m + $f;
+                        }
+                        echo implode(' | ', $parts);
+                        if ($total > 0) echo " | Total: $total";
+                    } else {
+                        echo 'None added';
+                    }
+                    ?>
+                </p>
                 <p><strong>Status:</strong> 
                     <?php
-                    $status = strtolower($program['status'] ?? 'active');
-                    if ($status !== 'active') {
+                    if ($programStatus !== 'active') {
                         echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
                     } else {
                         echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
@@ -100,125 +145,31 @@ $nav_links = [
             <div style="margin-top: 32px;">
                 <h2>Projects under this Program</h2>
 
-                <?php if (empty($projects)): ?>
+                <?php if (empty($projectsList)): ?>
                     <p>No projects added yet.</p>
                 <?php else: ?>
                     <div class="quarter-scroll-container">
                         <div class="quarter-buttons">
-                            <?php foreach ($projects as $project): ?>
-                                <div class="quarter-item <?= ($project['status'] !== 'active') ? 'completed' : '' ?>">
-                                    <button class="quarter-btn <?= ($project['status'] !== 'active') ? 'completed-project' : '' ?>" 
-                                            onclick="window.location.href='view_project.php?id=<?= $project['id'] ?>'">
-                                        <span class="quarter-btn-title"><?= htmlspecialchars($project['project_title']) ?></span>
+                            <?php foreach ($projectsList as $proj): ?>
+                                <div class="quarter-item">
+                                    <button class="quarter-btn" 
+                                            onclick="window.location.href='view_project.php?id=<?= $proj['id'] ?>'">
+                                        <span class="quarter-btn-title"><?= htmlspecialchars($proj['project_title']) ?></span>
                                         <span class="quarter-btn-subtitle">
-                                            <?= htmlspecialchars($project['implementation_start'] ? date('M d, Y', strtotime($project['implementation_start'])) : 'N/A') ?>
-                                            <?php if ($project['implementation_end']): ?>
-                                                – <?= htmlspecialchars(date('M d, Y', strtotime($project['implementation_end']))) ?>
-                                            <?php endif; ?>
+                                            <?= htmlspecialchars(date('M d, Y', strtotime($proj['implementation_start']))) ?> – 
+                                            <?= htmlspecialchars(date('M d, Y', strtotime($proj['implementation_end']))) ?>
                                         </span>
                                     </button>
-
-                                    <button class="action-icon edit-icon-btn" 
-                                            onclick="window.location.href='edit_project.php?id=<?= $project['id'] ?>'"
-                                            title="Edit project">
-                                        <span class="material-icons">edit</span>
-                                    </button>
-
-                                    <?php if ($project['status'] === 'active'): ?>
-                                        <button class="action-icon complete-icon-btn" 
-                                                data-id="<?= $project['id'] ?>"
-                                                data-mode="project"
-                                                title="Mark as Completed">
-                                            <span class="material-icons">check_circle</span>
-                                        </button>
-                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 <?php endif; ?>
 
-                <a href="add_project.php?program_id=<?= htmlspecialchars($program['id']) ?>" 
-                   class="action-btn add">Add New Project</a>
+                <a href="add_project.php?program_id=<?= $id ?>" class="action-btn add" style="margin-top: 16px;">Add New Project</a>
             </div>
         <?php endif; ?>
     </main>
-
-    <script>
-    // Beneficiaries summary
-    const beneficiariesJson = <?= json_encode(json_decode($program['beneficiaries_json'] ?? '[]', true)) ?>;
-    const beneficiariesSpan = document.getElementById('view-beneficiaries');
-    if (beneficiariesSpan) {
-        let summary = '';
-        let total = 0;
-        if (Array.isArray(beneficiariesJson)) {
-            beneficiariesJson.forEach(b => {
-                const typeText = b.type?.trim() || '';
-                const male = parseInt(b.male ?? 0);
-                const female = parseInt(b.female ?? 0);
-                if (typeText) {
-                    if (male > 0 || female > 0) {
-                        summary += `${typeText}: ${male} male, ${female} female | `;
-                    } else {
-                        summary += `${typeText} | `;
-                    }
-                    total += male + female;
-                }
-            });
-            summary += total > 0 ? `Total: ${total}` : '';
-            beneficiariesSpan.textContent = summary.trim() || 'None added';
-        }
-    } else {
-        console.warn('Beneficiaries span not found');
-    }
-
-    // Complete button handler
-    document.querySelectorAll('.complete-icon-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-
-            const mode = this.dataset.mode || 'project';
-            const entity = mode === 'project' ? 'project' : 'activity';
-
-            if (confirm(`Mark this ${entity} as completed?`)) {
-                btn.disabled = true;
-                const originalIcon = btn.innerHTML;
-                btn.innerHTML = '<span class="material-icons">hourglass_empty</span>';
-
-                fetch('complete.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `id=${encodeURIComponent(this.dataset.id)}&mode=${encodeURIComponent(mode)}`
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        const card = this.closest('.quarter-item');
-                        if (card) {
-                            card.querySelector('.quarter-btn').classList.add('completed-project');
-                            card.classList.add('completed');
-                            this.remove();
-                        }
-                        location.reload();
-                    } else {
-                        alert('Failed: ' + (data.message || 'Unknown error'));
-                    }
-                })
-                .catch(err => {
-                    console.error('Complete request failed:', err);
-                    alert('Network or server error: ' + err.message);
-                })
-                .finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalIcon;
-                });
-            }
-        });
-    });
-    </script>
 
 </body>
 </html>

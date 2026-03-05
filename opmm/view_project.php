@@ -19,8 +19,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT program_id, project_title, implementation_start, implementation_end,
                type_of_extension_service_agenda, sdg_goals,
-               offices_involved, programs_involved, beneficiaries_json,
-               status
+               offices_involved, programs_involved, beneficiaries_json
         FROM project_entries
         WHERE id = ?
     ");
@@ -44,6 +43,21 @@ try {
     ");
     $actStmt->execute([$id]);
     $activities = $actStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Derive project status from activities
+    $projectStatus = 'active';
+    if (!empty($activities)) {
+        $allCompleted = true;
+        foreach ($activities as $act) {
+            if ($act['status'] !== 'completed') {
+                $allCompleted = false;
+                break;
+            }
+        }
+        if ($allCompleted) {
+            $projectStatus = 'completed';
+        }
+    }
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
@@ -88,11 +102,28 @@ $nav_links = [
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($project['sdg_goals'] ?? 'N/A') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($project['offices_involved'] ?? 'N/A') ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($project['programs_involved'] ?? 'N/A') ?></p>
-                <p><strong>Beneficiaries:</strong> <span id="view-beneficiaries"></span></p>
+                <p><strong>Beneficiaries:</strong> 
+                    <?php
+                    $benefs = json_decode($project['beneficiaries_json'] ?? '[]', true);
+                    if (is_array($benefs) && !empty($benefs)) {
+                        $parts = [];
+                        foreach ($benefs as $b) {
+                            $type = htmlspecialchars($b['type'] ?? 'Unnamed');
+                            $m = (int)($b['male'] ?? 0);
+                            $f = (int)($b['female'] ?? 0);
+                            $line = $type;
+                            if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
+                            $parts[] = $line;
+                        }
+                        echo implode(' | ', $parts);
+                    } else {
+                        echo 'None added';
+                    }
+                    ?>
+                </p>
                 <p><strong>Status:</strong> 
                     <?php
-                    $status = strtolower($project['status'] ?? 'active');
-                    if ($status !== 'active') {
+                    if ($projectStatus !== 'active') {
                         echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
                     } else {
                         echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
@@ -160,12 +191,10 @@ $nav_links = [
         if (rawValue && rawValue.trim() !== '') {
             let parsed = [];
             
-            // Try parsing as JSON first
             try {
                 parsed = JSON.parse(rawValue);
             } catch (e) {
                 console.log('Not valid JSON, treating as comma-separated string:', rawValue);
-                // Fallback: split plain text by comma
                 parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
             }
 
@@ -204,7 +233,7 @@ $nav_links = [
         console.warn('Beneficiaries span not found');
     }
 
-    // Complete button handler
+    // Complete button handler with visual feedback
     document.querySelectorAll('.complete-icon-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();

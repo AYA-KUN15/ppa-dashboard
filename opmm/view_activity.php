@@ -16,13 +16,19 @@ if (!$id || !is_numeric($id)) {
 }
 
 try {
+    // Fetch activity + parent project + grandparent program (for display only, not status)
     $stmt = $pdo->prepare("
-        SELECT project_id, activity_name, implementation_start, implementation_end,
-               type_of_extension_service_agenda, sdg_goals,
-               offices_involved, programs_involved, beneficiaries_json,
-               status
-        FROM activity_entries
-        WHERE id = ?
+        SELECT 
+            a.id, a.activity_name, a.implementation_start, a.implementation_end,
+            a.type_of_extension_service_agenda, a.sdg_goals,
+            a.offices_involved, a.programs_involved, a.beneficiaries_json,
+            a.status AS activity_status,
+            p.id AS project_id, p.project_title,
+            pr.id AS program_id, pr.title AS program_title
+        FROM activity_entries a
+        LEFT JOIN project_entries p ON a.project_id = p.id
+        LEFT JOIN program_entries pr ON p.program_id = pr.id
+        WHERE a.id = ?
     ");
     $stmt->execute([$id]);
     $activity = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -32,10 +38,8 @@ try {
         exit;
     }
 
-    // Parent project
-    $projStmt = $pdo->prepare("SELECT project_title FROM project_entries WHERE id = ?");
-    $projStmt->execute([$activity['project_id']]);
-    $project = $projStmt->fetch(PDO::FETCH_ASSOC);
+    // Use REAL activity status only (no inheritance override)
+    $status = strtolower($activity['activity_status'] ?? 'active');
 
     // Uploaded images
     $imgStmt = $pdo->prepare("
@@ -47,7 +51,6 @@ try {
     $imgStmt->execute([$id]);
     $images = $imgStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Count for button disable
     $count = count($images);
     $maxPhotos = 2;
     $canAdd = $count < $maxPhotos;
@@ -73,10 +76,7 @@ $nav_links = [
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        .photo-item {
-            position: relative;
-            display: inline-block;
-        }
+        .photo-item { position: relative; display: inline-block; }
         .delete-photo-btn {
             position: absolute;
             top: 6px;
@@ -95,10 +95,7 @@ $nav_links = [
             opacity: 0.9;
             transition: opacity 0.2s;
         }
-        .delete-photo-btn:hover {
-            opacity: 1;
-            background: #dc2626;
-        }
+        .delete-photo-btn:hover { opacity: 1; background: #dc2626; }
         .add-disabled {
             background: #9ca3af !important;
             cursor: not-allowed !important;
@@ -116,7 +113,7 @@ $nav_links = [
             <h1><?= htmlspecialchars($activity['activity_name']) ?></h1>
 
             <div class="program-details">
-                <p><strong>Parent Project:</strong> <?= htmlspecialchars($project['project_title'] ?? 'Unknown') ?></p>
+                <p><strong>Parent Project:</strong> <?= htmlspecialchars($activity['project_title'] ?? 'Unknown') ?></p>
                 <p><strong>Activity Name:</strong> <?= htmlspecialchars($activity['activity_name']) ?></p>
                 <p><strong>Implementation Start:</strong> <?= htmlspecialchars($activity['implementation_start'] ?? 'N/A') ?></p>
                 <p><strong>Implementation End:</strong> <?= htmlspecialchars($activity['implementation_end'] ?? 'N/A') ?></p>
@@ -127,7 +124,6 @@ $nav_links = [
                 <p><strong>Beneficiaries:</strong> <span id="view-beneficiaries"></span></p>
                 <p><strong>Status:</strong> 
                     <?php
-                    $status = strtolower($activity['status'] ?? 'active');
                     if ($status !== 'active') {
                         echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
                     } else {
@@ -179,7 +175,7 @@ $nav_links = [
     </main>
 
     <script>
-    // Beneficiaries summary – from current activity
+    // Beneficiaries summary
     const rawJson = <?= json_encode($activity['beneficiaries_json'] ?? '[]') ?>;
     let beneficiariesJson = [];
 
@@ -187,7 +183,6 @@ $nav_links = [
         beneficiariesJson = JSON.parse(rawJson);
     } catch (e) {
         console.error('Failed to parse beneficiaries_json in view_activity:', e);
-        console.log('Raw value was:', rawJson);
         beneficiariesJson = [];
     }
 
@@ -228,7 +223,7 @@ $nav_links = [
         console.warn('Beneficiaries span element not found in view_activity');
     }
 
-    // Delete photo handler (unchanged)
+    // Delete photo handler
     document.querySelectorAll('.delete-photo-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             if (confirm('Delete this photo? This cannot be undone.')) {

@@ -416,18 +416,21 @@ button:hover {
 }
 
 .action-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 6px;
+    background: none;
     border: none;
-    background: transparent !important;     /* force no background ever */
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s ease, transform 0.2s ease;
-    flex-shrink: 0;
-    margin-left: 8px;
+    color: #6b7280;           /* gray like pencil */
+    font-size: 1.5rem;        /* same size */
+    padding: 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.action-icon:hover {
+    color: #c8102e;           /* BSU red on hover */
+    background: rgba(200, 16, 46, 0.1);
+    transform: scale(1.1);
+    background: transparent !important;   /* override any inherited bg */
 }
 
 .action-icon .material-icons {
@@ -438,12 +441,6 @@ button:hover {
 /* Hover: ONLY icon color changes to red, background stays transparent */
 .action-icon:hover .material-icons {
     color: #c8102e !important;
-}
-
-/* Optional: subtle scale for feedback (no background change) */
-.action-icon:hover {
-    transform: scale(1.15);
-    background: transparent !important;   /* override any inherited bg */
 }
 
 /* Specific overrides for edit (pencil) and complete (check) */
@@ -473,11 +470,33 @@ button:hover {
 
 /* Scrollable quarter/year buttons */
 .quarter-item {
+    position: relative; /* important for absolute icons */
+}
+
+.action-icon {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    width: 100%;
-    margin-bottom: 12px;
+    justify-content: center;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.action-icon.edit-icon-btn {
+    right: 52px; /* space for two icons */
+}
+
+.action-icon:hover {
+    transform: scale(1.1);
+    background: white;
 }
 
 .quarter-scroll-container {
@@ -813,4 +832,22 @@ body.modal-open {
     outline: none;
     border-color: #c8102e;
     box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
+}
+
+.status-badge {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.status-badge.active {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.status-badge.completed {
+    background-color: #d1fae5;
+    color: #065f46;
 }

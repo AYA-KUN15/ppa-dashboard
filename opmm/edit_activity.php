@@ -18,7 +18,7 @@ if (!$id || !is_numeric($id)) {
 $stmt = $pdo->prepare("
     SELECT project_id, activity_name, implementation_start, implementation_end,
            type_of_extension_service_agenda, sdg_goals, frequency_monitoring,
-           offices_involved, programs_involved, beneficiaries_json
+           offices_involved, programs_involved, beneficiaries_json, status
     FROM activity_entries WHERE id = ?
 ");
 $stmt->execute([$id]);
@@ -54,6 +54,7 @@ $isSingleMonth = (date('Y-m', strtotime($parentStart)) === date('Y-m', strtotime
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, date('n', strtotime($parentStart)), $parentYear);
 
 $error = '';
+$success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $activity_name = trim($_POST['activity_name'] ?? '');
@@ -63,12 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $offices       = trim($_POST['offices'] ?? '');
     $programs      = trim($_POST['programs'] ?? '');
     $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
+    $status        = trim($_POST['status'] ?? 'active');
 
-    // Start
-    $start_day = (int)($_POST['start_day'] ?? 0);
+    // Start date handling
+    $start_month = $isSingleMonth ? $parentMonth : trim($_POST['start_month'] ?? $parentMonth);
+    $start_day   = (int)($_POST['start_day'] ?? date('j', strtotime($entry['implementation_start'])));
 
-    // End (optional in single-month)
-    $end_day = (int)($_POST['end_day'] ?? 0);
+    // End date handling
+    $end_month   = $isSingleMonth ? $parentMonth : trim($_POST['end_month'] ?? $parentMonth);
+    $end_day     = (int)($_POST['end_day'] ?? date('j', strtotime($entry['implementation_end'])));
 
     if (empty($activity_name) || $start_day < 1 || $start_day > $daysInMonth ||
         empty($type_agenda) || empty($sdg_goals) || empty($frequency_monitoring) ||
@@ -76,15 +80,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill all required fields. Start day must be between 1 and ' . $daysInMonth . ' for ' . $parentMonth . '.';
     } elseif (!$isSingleMonth && ($end_day < 1 || $end_day > $daysInMonth)) {
         $error = 'End day must be between 1 and ' . $daysInMonth . '.';
-    } elseif (!$isSingleMonth && $end_day < $start_day) {
+    } elseif (!$isSingleMonth && $end_day < $start_day && $end_month === $start_month) {
         $error = 'End day cannot be before start day in the same month.';
     } else {
-        $startDate = date('Y-m-d', strtotime("$parentMonth $start_day $parentYear"));
+        $startDate = date('Y-m-d', strtotime("$start_month $start_day $parentYear"));
 
         if ($isSingleMonth && $end_day === 0) {
             $endDate = $startDate;
         } else {
-            $endDate = date('Y-m-d', strtotime("$parentMonth $end_day $parentYear"));
+            $endDate = date('Y-m-d', strtotime("$end_month $end_day $parentYear"));
         }
 
         try {
@@ -92,21 +96,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 UPDATE activity_entries 
                 SET activity_name = ?, implementation_start = ?, implementation_end = ?,
                     type_of_extension_service_agenda = ?, sdg_goals = ?, frequency_monitoring = ?,
-                    offices_involved = ?, programs_involved = ?, beneficiaries_json = ?, updated_at = NOW()
+                    offices_involved = ?, programs_involved = ?, beneficiaries_json = ?,
+                    status = ?, updated_at = NOW()
                 WHERE id = ?
             ");
             $stmt->execute([
                 $activity_name, $startDate, $endDate,
                 $type_agenda, $sdg_goals, $frequency_monitoring,
-                $offices, $programs, $beneficiaries, $id
+                $offices, $programs, $beneficiaries,
+                $status, $id
             ]);
 
             if ($stmt->rowCount() > 0) {
-                // Force reset to active after successful edit
-                $resetStmt = $pdo->prepare("UPDATE activity_entries SET status = 'active', updated_at = NOW() WHERE id = ?");
-                $resetStmt->execute([$id]);
+                // Reset parent project & program if activity is set back to 'active'
+                if (strtolower($status) === 'active') {
+                    // Reset project
+                    $resetProj = $pdo->prepare("
+                        UPDATE project_entries 
+                        SET status = 'active', updated_at = NOW() 
+                        WHERE id = ? AND status = 'completed'
+                    ");
+                    $resetProj->execute([$project_id]);
 
-                header("Location: view_project.php?id={$project_id}&success=updated");
+                    // Reset program
+                    $resetProg = $pdo->prepare("
+                        UPDATE program_entries pr
+                        JOIN project_entries p ON pr.id = p.program_id
+                        SET pr.status = 'active', pr.updated_at = NOW()
+                        WHERE p.id = ? AND pr.status = 'completed'
+                    ");
+                    $resetProg->execute([$project_id]);
+                }
+
+                header("Location: view_activity.php?id={$id}&success=updated");
                 exit;
             } else {
                 $error = 'No changes were made.';
@@ -275,6 +297,12 @@ $nav_links = [
                 </div>
             </div>
 
+            <label>Status</label>
+            <select name="status" required>
+                <option value="active" <?= ($entry['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Active</option>
+                <option value="completed" <?= ($entry['status'] ?? '') === 'completed' ? 'selected' : '' ?>>Completed</option>
+            </select>
+
             <button type="submit">Save Changes</button>
         </form>
     </main>
@@ -290,9 +318,10 @@ $nav_links = [
                     $types = explode(', ', $parent['type_of_extension_service_agenda']);
                     foreach ($types as $t) {
                         $t = trim($t);
+                        $checked = strpos($entry['type_of_extension_service_agenda'] ?? '', $t) !== false ? 'checked' : '';
                         echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($t) . '
-                            <input type="checkbox" value="' . htmlspecialchars($t) . '">
+                            <input type="checkbox" value="' . htmlspecialchars($t) . '" ' . $checked . '>
                         </label>';
                     }
                 } else {
@@ -318,9 +347,10 @@ $nav_links = [
                     $sdgs = explode(', ', $parent['sdg_goals']);
                     foreach ($sdgs as $s) {
                         $s = trim($s);
+                        $checked = strpos($entry['sdg_goals'] ?? '', $s) !== false ? 'checked' : '';
                         echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($s) . '
-                            <input type="checkbox" value="' . htmlspecialchars($s) . '">
+                            <input type="checkbox" value="' . htmlspecialchars($s) . '" ' . $checked . '>
                         </label>';
                     }
                 } else {
@@ -346,9 +376,10 @@ $nav_links = [
                     $offices = explode(', ', $parent['offices_involved']);
                     foreach ($offices as $o) {
                         $o = trim($o);
+                        $checked = strpos($entry['offices_involved'] ?? '', $o) !== false ? 'checked' : '';
                         echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($o) . '
-                            <input type="checkbox" value="' . htmlspecialchars($o) . '">
+                            <input type="checkbox" value="' . htmlspecialchars($o) . '" ' . $checked . '>
                         </label>';
                     }
                 } else {
@@ -374,9 +405,10 @@ $nav_links = [
                     $progs = explode(', ', $parent['programs_involved']);
                     foreach ($progs as $p) {
                         $p = trim($p);
+                        $checked = strpos($entry['programs_involved'] ?? '', $p) !== false ? 'checked' : '';
                         echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
                             ' . htmlspecialchars($p) . '
-                            <input type="checkbox" value="' . htmlspecialchars($p) . '">
+                            <input type="checkbox" value="' . htmlspecialchars($p) . '" ' . $checked . '>
                         </label>';
                     }
                 } else {
@@ -429,8 +461,12 @@ $nav_links = [
         const hidden = document.getElementById(type + '-hidden');
         const display = document.getElementById('selected-' + type);
 
-        if (hidden) hidden.value = values.join(', ');
-        if (display) display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+        if (hidden) {
+            hidden.value = values.join(', ');
+        }
+        if (display) {
+            display.textContent = values.length > 0 ? values.join(', ') : '';
+        }
 
         closeModal(type + '-modal');
     }
@@ -509,7 +545,7 @@ $nav_links = [
         const preview = document.getElementById('selected-beneficiaries');
         if (preview) {
             const count = selected.length;
-            preview.textContent = count > 0 ? `${count} type(s) selected` : 'None selected';
+            preview.textContent = count > 0 ? `${count} type(s) selected` : '';
         }
 
         closeModal('beneficiaries-modal');

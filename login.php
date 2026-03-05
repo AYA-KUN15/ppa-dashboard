@@ -82,7 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <p class="info">
             Use your @g.batstate-u.edu.ph email<br>
-            (Test account: test@g.batstate-u.edu.ph)
         </p>
     </div>
 

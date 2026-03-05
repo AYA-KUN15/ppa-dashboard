@@ -1,5 +1,5 @@
 <?php
-// list.php - Program List
+// list.php - Program List (derived status only)
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -10,39 +10,45 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once '../config/db.php';
 
 try {
-    $where = "WHERE status = 'active'";
-    $params = [];
-    $orderBy = "ORDER BY duration_start DESC, title ASC";
-
-    // Type filter (partial match)
-    if (!empty($_GET['type'])) {
-        $where .= " AND type_of_extension_service_agenda LIKE ?";
-        $params[] = '%' . trim($_GET['type']) . '%';
-    }
-
-    // SDG filter (partial match)
-    if (!empty($_GET['sdg'])) {
-        $where .= " AND sdg_goals LIKE ?";
-        $params[] = '%' . trim($_GET['sdg']) . '%';
-    }
-
-    // Source of Fund filter (exact match)
-    if (!empty($_GET['fund'])) {
-        $where .= " AND source_of_fund = ?";
-        $params[] = trim($_GET['fund']);
-    }
-
-    $query = "
+    $stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals
         FROM program_entries
-        $where
-        $orderBy
-    ";
-
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
+        ORDER BY duration_start DESC, title ASC
+    ");
+    $stmt->execute();
     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Derive status for each program
+    foreach ($programs as &$program) {
+        $projStmt = $pdo->prepare("SELECT id FROM project_entries WHERE program_id = ?");
+        $projStmt->execute([$program['id']]);
+        $projects = $projStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $programStatus = 'active';
+        if (!empty($projects)) {
+            $allProjCompleted = true;
+            foreach ($projects as $proj) {
+                $actStmt = $pdo->prepare("
+                    SELECT COUNT(*) AS total, 
+                           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+                    FROM activity_entries WHERE project_id = ?
+                ");
+                $actStmt->execute([$proj['id']]);
+                $counts = $actStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($counts['total'] > 0 && $counts['completed'] != $counts['total']) {
+                    $allProjCompleted = false;
+                    break;
+                }
+            }
+            if ($allProjCompleted) {
+                $programStatus = 'completed';
+            }
+        }
+        $program['status'] = $programStatus;
+    }
+    unset($program);
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
     $programs = [];
@@ -85,9 +91,10 @@ $nav_links = [
                 <?php if (!empty($error)): ?>
                     <p class="error"><?= htmlspecialchars($error) ?></p>
                 <?php elseif (empty($programs)): ?>
-                    <p>No programs found yet.</p>
+                    <p>No programs found.</p>
                 <?php else: ?>
                     <?php foreach ($programs as $program): ?>
+                        <?php if ($program['status'] !== 'active') continue; // Only show active programs ?>
                         <div class="quarter-item">
                             <button class="quarter-btn" 
                                     onclick="window.location.href='view.php?mode=program&id=<?= $program['id'] ?>'">
@@ -102,13 +109,6 @@ $nav_links = [
                                     onclick="window.location.href='edit.php?mode=program&id=<?= $program['id'] ?>'"
                                     title="Edit program">
                                 <span class="material-icons">edit</span>
-                            </button>
-
-                            <button class="action-icon complete-icon-btn" 
-                                    data-id="<?= $program['id'] ?>"
-                                    data-mode="program"
-                                    title="Mark as Completed">
-                                <span class="material-icons">check_circle</span>
                             </button>
                         </div>
                     <?php endforeach; ?>
@@ -244,28 +244,6 @@ window.onclick = function(event) {
         closeModal(event.target.id);
     }
 };
-
-document.querySelectorAll('.complete-icon-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-        if (confirm("Mark this program as completed? It will no longer appear in the active list.")) {
-            fetch('complete.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `id=${this.dataset.id}&mode=${this.dataset.mode}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert("Program marked as completed.");
-                    location.reload();
-                } else {
-                    alert("Error: " + (data.message || "Unknown error"));
-                }
-            })
-            .catch(err => alert("Network error: " + err.message));
-        }
-    });
-});
 </script>
     
 </body>
