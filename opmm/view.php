@@ -21,7 +21,7 @@ try {
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, partner_agencies,
-               beneficiaries_json, source_of_fund
+               beneficiaries_json, source_of_fund, status
         FROM program_entries
         WHERE id = ?
     ");
@@ -33,15 +33,20 @@ try {
         exit;
     }
 
-    // Derive program status from projects
-    $projStmt = $pdo->prepare("SELECT id FROM project_entries WHERE program_id = ?");
-    $projStmt->execute([$id]);
-    $projects = $projStmt->fetchAll(PDO::FETCH_ASSOC);
+    // Fetch all projects under this program
+    $projListStmt = $pdo->prepare("
+        SELECT id, project_title, implementation_start, implementation_end, status
+        FROM project_entries WHERE program_id = ?
+        ORDER BY implementation_start ASC
+    ");
+    $projListStmt->execute([$id]);
+    $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $programStatus = 'active';
-    if (!empty($projects)) {
-        $allProjCompleted = true;
-        foreach ($projects as $proj) {
+    // Check if ALL projects are completed (all their activities are completed)
+    $allProjectsCompleted = true;
+    foreach ($projectsList as $proj) {
+        // Skip if project already marked completed
+        if ($proj['status'] !== 'completed') {
             $actStmt = $pdo->prepare("
                 SELECT COUNT(*) AS total, 
                        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
@@ -51,23 +56,23 @@ try {
             $counts = $actStmt->fetch(PDO::FETCH_ASSOC);
 
             if ($counts['total'] > 0 && $counts['completed'] != $counts['total']) {
-                $allProjCompleted = false;
+                $allProjectsCompleted = false;
                 break;
             }
         }
-        if ($allProjCompleted) {
-            $programStatus = 'completed';
-        }
     }
 
-    // Fetch projects for list
-    $projListStmt = $pdo->prepare("
-        SELECT id, project_title, implementation_start, implementation_end
-        FROM project_entries WHERE program_id = ?
-        ORDER BY implementation_start ASC
-    ");
-    $projListStmt->execute([$id]);
-    $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
+    // Auto-update program status if needed
+    $programStatus = $allProjectsCompleted ? 'completed' : 'active';
+    if ($programStatus !== $program['status']) {
+        $updateProg = $pdo->prepare("
+            UPDATE program_entries 
+            SET status = ?, updated_at = NOW() 
+            WHERE id = ?
+        ");
+        $updateProg->execute([$programStatus, $id]);
+    }
+
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
@@ -76,7 +81,6 @@ $nav_links = [
     ['url' => '../index.php', 'label' => 'Home', 'active' => false],
     ['url' => 'list.php', 'label' => 'PPA', 'active' => false],
 ];
-
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -91,7 +95,7 @@ $nav_links = [
     <link rel="stylesheet" href="../css/style.css">
 
     <style>
-        /* Flex layout for quarter-item (same as list.php & view_project.php) */
+        /* Flex layout for quarter-item */
         .quarter-item {
             display: flex;
             align-items: center;
@@ -123,7 +127,7 @@ $nav_links = [
             color: #6b7280;
         }
 
-        /* Edit icon - same width fix as list.php */
+        /* Edit icon */
         .edit-icon-btn {
             flex: 0 0 42px;
             width: 42px;
@@ -148,7 +152,7 @@ $nav_links = [
             background: rgba(200, 16, 46, 0.1);
         }
 
-        /* Completed green style (if needed for projects in future) */
+        /* Completed green style for projects */
         .quarter-btn.completed-project {
             background: #ecfdf5 !important;
             border: 2px solid #10b981 !important;
@@ -200,13 +204,13 @@ $nav_links = [
                         echo implode(' | ', $parts);
                         if ($total > 0) echo " | Total: $total";
                     } else {
-                        echo 'None added';
+                        echo '';
                     }
                     ?>
                 </p>
                 <p><strong>Status:</strong> 
                     <?php
-                    if ($programStatus !== 'active') {
+                    if ($programStatus === 'completed') {
                         echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
                     } else {
                         echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
@@ -225,7 +229,7 @@ $nav_links = [
                         <div class="quarter-buttons">
                             <?php foreach ($projectsList as $proj): ?>
                                 <div class="quarter-item">
-                                    <button class="quarter-btn" 
+                                    <button class="quarter-btn <?= ($proj['status'] === 'completed') ? 'completed-project' : '' ?>" 
                                             onclick="window.location.href='view_project.php?id=<?= $proj['id'] ?>'">
                                         <span class="quarter-btn-title"><?= htmlspecialchars($proj['project_title']) ?></span>
                                         <span class="quarter-btn-subtitle">
