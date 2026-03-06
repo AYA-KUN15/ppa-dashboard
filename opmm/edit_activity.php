@@ -100,6 +100,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $offices, $programs, $beneficiaries, $id
             ]);
 
+            // After successful edit, force parent project back to 'active' (since edit implies it's now incomplete/active)
+            $revertProj = $pdo->prepare("
+                UPDATE project_entries 
+                SET status = 'active', 
+                    updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $revertProj->execute([$project_id]);
+
             if ($stmt->rowCount() > 0) {
                 header("Location: view_project.php?id={$project_id}&success=updated");
                 exit;
@@ -129,27 +138,27 @@ $nav_links = [
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
     <style>
-  #save-btn {
-    background: #c8102e;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background 0.2s;
-  }
+        #save-btn {
+            background: #c8102e;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
 
-  #save-btn:disabled {
-    background: #d1d5db;
-    color: #6b7280;
-    cursor: not-allowed;
-  }
+        #save-btn:disabled {
+            background: #d1d5db;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
 
-  #save-btn:hover:not(:disabled) {
-    background: #a50d24;
-  }
-</style>
+        #save-btn:hover:not(:disabled) {
+            background: #a50d24;
+        }
+    </style>
 </head>
 <body>
 
@@ -210,7 +219,7 @@ $nav_links = [
                                placeholder="Day" value="<?= htmlspecialchars(date('j', strtotime($entry['implementation_start']))) ?>" required 
                                style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                     <?php else: ?>
-                        <select name="start_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <select name="start_month" class="duration-month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
                             <option value="">Month</option>
                             <?php
                             $shownMonths = [];
@@ -245,7 +254,7 @@ $nav_links = [
                                style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                         <small style="color: #6b7280; font-size: 0.85rem;">(leave blank to use same day as start)</small>
                     <?php else: ?>
-                        <select name="end_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <select name="end_month" class="duration-month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
                             <option value="">Month</option>
                             <?php
                             $shownMonths = [];
@@ -266,7 +275,7 @@ $nav_links = [
                 </div>
             </div>
 
-            <button type="submit" id="save-btn" disabled>Save Changes</button>
+            <button type="submit" id="save-btn" disabled><b>Save Changes</b></button>
         </form>
     </main>
 
@@ -439,14 +448,15 @@ $nav_links = [
         const rowsDiv = document.getElementById('beneficiary-rows');
         rowsDiv.innerHTML = '';
 
-        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-        const currentJson = <?= json_encode($entry['beneficiaries_json'] ?? '[]') ?>;
+        // Use current form state (hidden input), not DB saved state
+        const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
 
-        let parentEntries = [];
         let currentEntries = [];
+        try { currentEntries = JSON.parse(currentJson); } catch (e) { currentEntries = []; }
 
+        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+        let parentEntries = [];
         try { parentEntries = JSON.parse(parentJson); } catch (e) {}
-        try { currentEntries = JSON.parse(currentJson); } catch (e) {}
 
         if (parentEntries.length === 0) {
             rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries in parent project.</p>';
@@ -538,7 +548,7 @@ $nav_links = [
             }
         });
 
-        // Beneficiaries preview - count types from hidden JSON
+        // Beneficiaries preview
         const benHidden = document.getElementById('beneficiaries-hidden');
         const benDisplay = document.getElementById('selected-beneficiaries');
         if (benHidden && benDisplay) {
@@ -558,14 +568,16 @@ $nav_links = [
     function checkFormChanges() {
         const currentValues = {
             activity_name: document.querySelector('[name="activity_name"]').value.trim(),
-            type_agenda: document.getElementById('type-hidden').value.trim(),
-            sdg_goals: document.getElementById('sdg-hidden').value.trim(),
-            frequency_monitoring: document.querySelector('[name="frequency_monitoring"]').value.trim(),
-            offices: document.getElementById('offices-hidden').value.trim(),
-            programs: document.getElementById('programs-hidden').value.trim(),
-            beneficiaries: document.getElementById('beneficiaries-hidden').value.trim(),
-            start_day: document.querySelector('[name="start_day"]').value.trim(),
-            end_day: (document.querySelector('[name="end_day"]') || {value: ''}).value.trim()
+            type_agenda: document.getElementById('type-hidden')?.value.trim() || '',
+            sdg_goals: document.getElementById('sdg-hidden')?.value.trim() || '',
+            frequency_monitoring: document.querySelector('[name="frequency_monitoring"]')?.value.trim() || '',
+            offices: document.getElementById('offices-hidden')?.value.trim() || '',
+            programs: document.getElementById('programs-hidden')?.value.trim() || '',
+            beneficiaries: document.getElementById('beneficiaries-hidden')?.value.trim() || '',
+            start_day: document.querySelector('[name="start_day"]')?.value.trim() || '',
+            start_month: document.querySelector('[name="start_month"]')?.value.trim() || '',
+            end_day: document.querySelector('[name="end_day"]')?.value.trim() || '',
+            end_month: document.querySelector('[name="end_month"]')?.value.trim() || ''
         };
 
         let changed = false;
@@ -580,7 +592,7 @@ $nav_links = [
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Store original values
+        // Store original values (including months)
         originalValues = {
             activity_name: document.querySelector('[name="activity_name"]').value.trim(),
             type_agenda: document.getElementById('type-hidden').value.trim(),
@@ -590,7 +602,9 @@ $nav_links = [
             programs: document.getElementById('programs-hidden').value.trim(),
             beneficiaries: document.getElementById('beneficiaries-hidden').value.trim(),
             start_day: document.querySelector('[name="start_day"]').value.trim(),
-            end_day: (document.querySelector('[name="end_day"]') || {value: ''}).value.trim()
+            start_month: document.querySelector('[name="start_month"]')?.value.trim() || '',
+            end_day: document.querySelector('[name="end_day"]')?.value.trim() || '',
+            end_month: document.querySelector('[name="end_month"]')?.value.trim() || ''
         };
 
         // Sync previews
@@ -598,7 +612,7 @@ $nav_links = [
         setTimeout(syncPreviews, 100);
         setTimeout(syncPreviews, 500);
 
-        // Listen for changes
+        // Listen for all changes
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('input', checkFormChanges);
             el.addEventListener('change', checkFormChanges);

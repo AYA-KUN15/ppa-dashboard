@@ -2,6 +2,7 @@
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
     header("Location: ../login.php");
     exit;
 }
@@ -19,7 +20,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT program_id, project_title, implementation_start, implementation_end,
                type_of_extension_service_agenda, sdg_goals,
-               offices_involved, programs_involved, beneficiaries_json
+               offices_involved, programs_involved, beneficiaries_json, status
         FROM project_entries
         WHERE id = ?
     ");
@@ -44,20 +45,59 @@ try {
     $actStmt->execute([$id]);
     $activities = $actStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Derive project status from activities
-    $projectStatus = 'active';
-    if (!empty($activities)) {
-        $allCompleted = true;
-        foreach ($activities as $act) {
-            if ($act['status'] !== 'completed') {
-                $allCompleted = false;
-                break;
-            }
-        }
-        if ($allCompleted) {
-            $projectStatus = 'completed';
+    // Count incomplete (active) activities
+    $incompleteCount = 0;
+    foreach ($activities as $act) {
+        if ($act['status'] === 'active') {
+            $incompleteCount++;
         }
     }
+
+    // Handle POST for completing activity
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete_activity'])) {
+        $activity_id = (int)($_POST['activity_id'] ?? 0);
+
+        if ($activity_id <= 0) {
+            $error = 'Invalid activity ID.';
+        } else {
+            try {
+                // Update activity to completed
+                $stmt = $pdo->prepare("
+                    UPDATE activity_entries 
+                    SET status = 'completed', 
+                        updated_at = NOW() 
+                    WHERE id = ? AND project_id = ?
+                ");
+                $stmt->execute([$activity_id, $id]);
+
+                // Re-check incomplete count AFTER update
+                $recheck = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM activity_entries 
+                    WHERE project_id = ? AND status = 'active'
+                ");
+                $recheck->execute([$id]);
+                $newIncomplete = $recheck->fetchColumn();
+
+                // If zero left → auto-complete project
+                if ($newIncomplete === 0) {
+                    $projStmt = $pdo->prepare("
+                        UPDATE project_entries 
+                        SET status = 'completed', 
+                            updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    $projStmt->execute([$id]);
+                }
+
+                header("Location: view_project.php?id=$id&success=activity_completed");
+                exit;
+            } catch (PDOException $e) {
+                $error = 'Failed to complete activity: ' . $e->getMessage();
+            }
+        }
+    }
+
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
@@ -66,7 +106,6 @@ $nav_links = [
     ['url' => '../index.php', 'label' => 'Home', 'active' => false],
     ['url' => 'view.php?id=' . $project['program_id'], 'label' => 'Program', 'active' => false],
 ];
-
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -81,7 +120,7 @@ $nav_links = [
     <link rel="stylesheet" href="../css/style.css">
 
     <style>
-        /* Layout fix: flex row + fixed icon width (same as your working list.php) */
+        /* Your original styles - unchanged */
         .quarter-item {
             display: flex;
             align-items: center;
@@ -113,7 +152,6 @@ $nav_links = [
             color: #6b7280;
         }
 
-        /* Icons - fixed width, transparent */
         .edit-icon-btn,
         .complete-icon-btn {
             flex: 0 0 42px;
@@ -141,7 +179,6 @@ $nav_links = [
             background: rgba(200, 16, 46, 0.1);
         }
 
-        /* Completed green */
         .quarter-btn.completed-project {
             background: #ecfdf5 !important;
             border: 2px solid #10b981 !important;
@@ -204,7 +241,7 @@ $nav_links = [
                 </p>
                 <p><strong>Status:</strong> 
                     <?php
-                    if ($projectStatus !== 'active') {
+                    if ($project['status'] === 'completed') {
                         echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
                     } else {
                         echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
@@ -243,8 +280,7 @@ $nav_links = [
 
                                     <?php if ($activity['status'] === 'active'): ?>
                                         <button class="action-icon complete-icon-btn" 
-                                                data-id="<?= $activity['id'] ?>"
-                                                data-mode="activity"
+                                                onclick="confirmCompleteActivity(<?= $activity['id'] ?>)"
                                                 title="Mark as Completed">
                                             <span class="material-icons">check_circle</span>
                                         </button>
@@ -255,13 +291,35 @@ $nav_links = [
                     </div>
                 <?php endif; ?>
 
-                <a href="add_activity.php?project_id=<?= $id ?>" class="action-btn add" style="margin-top: 16px;">Add New Activity</a>
+                <div style="margin-top: 16px;">
+                    <a href="add_activity.php?project_id=<?= $id ?>" class="action-btn add">Add New Activity</a>
+                </div>
             </div>
         <?php endif; ?>
     </main>
 
+    <!-- Hidden form for completing activity -->
+    <form id="complete-activity-form" method="POST" style="display:none;">
+        <input type="hidden" name="complete_activity" value="1">
+        <input type="hidden" name="activity_id" id="activity_id_field" value="">
+    </form>
+
     <script>
-    // Beneficiaries summary (unchanged - already has total)
+    function confirmCompleteActivity(activityId) {
+        const incompleteCount = <?= $incompleteCount ?>;
+
+        let message = "Mark this activity as completed?";
+        if (incompleteCount === 1) {
+            message = "This is the last incomplete activity. Completing it will also mark the entire Project as Completed. Are you sure?";
+        }
+
+        if (confirm(message)) {
+            document.getElementById('activity_id_field').value = activityId;
+            document.getElementById('complete-activity-form').submit();
+        }
+    }
+
+    // Your existing beneficiaries summary script (unchanged)
     const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
 
     const beneficiariesSpan = document.getElementById('view-beneficiaries');
@@ -313,53 +371,6 @@ $nav_links = [
     } else {
         console.warn('Beneficiaries span not found');
     }
-
-    // Complete button handler (unchanged)
-    document.querySelectorAll('.complete-icon-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-
-            const mode = this.dataset.mode || 'project';
-            const entity = mode === 'project' ? 'project' : 'activity';
-
-            if (confirm(`Mark this ${entity} as completed?`)) {
-                btn.disabled = true;
-                const originalIcon = btn.innerHTML;
-                btn.innerHTML = '<span class="material-icons">hourglass_empty</span>';
-
-                fetch('complete.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `id=${encodeURIComponent(this.dataset.id)}&mode=${encodeURIComponent(mode)}`
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        const card = this.closest('.quarter-item');
-                        if (card) {
-                            card.querySelector('.quarter-btn').classList.add('completed-project');
-                            card.classList.add('completed');
-                            this.remove();
-                        }
-                        location.reload();
-                    } else {
-                        alert('Failed: ' + (data.message || 'Unknown error'));
-                    }
-                })
-                .catch(err => {
-                    console.error('Complete request failed:', err);
-                    alert('Network or server error: ' + err.message);
-                })
-                .finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalIcon;
-                });
-            }
-        });
-    });
     </script>
 
 </body>
