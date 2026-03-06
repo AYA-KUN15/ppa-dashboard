@@ -91,7 +91,6 @@ $nav_links = [
     ['url' => '../index.php', 'label' => 'Home',    'active' => false],
     ['url' => 'view.php?id=' . $program_id, 'label' => 'Program', 'active' => false],
 ];
-
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -120,10 +119,10 @@ $nav_links = [
                 <p><strong>Project Title:</strong> <?= htmlspecialchars($d['project_title']) ?></p>
                 <p><strong>Implementation Start:</strong> <?= htmlspecialchars($d['implementation_start']) ?></p>
                 <p><strong>Implementation End:</strong> <?= htmlspecialchars($d['implementation_end']) ?></p>
-                <p><strong>Type of Extension Agenda:</strong> <?= htmlspecialchars($d['type_of_extension_service_agenda'] ?: 'None') ?></p>
-                <p><strong>SDG Goals:</strong> <?= htmlspecialchars($d['sdg_goals'] ?: 'None') ?></p>
-                <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices_involved'] ?: 'None') ?></p>
-                <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs_involved'] ?: 'None') ?></p>
+                <p><strong>Type of Extension Agenda:</strong> <?= htmlspecialchars($d['type_of_extension_service_agenda'] ?: '') ?></p>
+                <p><strong>SDG Goals:</strong> <?= htmlspecialchars($d['sdg_goals'] ?: '') ?></p>
+                <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices_involved'] ?: '') ?></p>
+                <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs_involved'] ?: '') ?></p>
                 <p><strong>Beneficiaries:</strong> 
                     <?php
                     $benefs = json_decode($d['beneficiaries_json'] ?? '[]', true);
@@ -142,7 +141,7 @@ $nav_links = [
                         echo implode(' | ', $parts);
                         if ($total > 0) echo " | Total: $total";
                     } else {
-                        echo 'None';
+                        echo '';
                     }
                     ?>
                 </p>
@@ -166,54 +165,52 @@ $nav_links = [
                 <!-- Type -->
                 <label>Type of Extension Service Agenda *</label>
                 <button type="button" onclick="openModal('type-modal')">Select Types</button>
-                <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['type_agenda'] ?? 'None selected') ?></div>
+                <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($_POST['type_agenda'] ?? '') ?>">
 
                 <!-- SDG -->
                 <label>Sustainable Development Goals *</label>
                 <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-                <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['sdg_goals'] ?? 'None selected') ?></div>
+                <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($_POST['sdg_goals'] ?? '') ?>">
 
                 <!-- Offices -->
                 <label>Offices Involved *</label>
                 <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-                <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['offices'] ?? 'None selected') ?></div>
+                <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($_POST['offices'] ?? '') ?>">
 
                 <!-- Programs -->
                 <label>Programs Involved *</label>
                 <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-                <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"><?= htmlspecialchars($_POST['programs'] ?? 'None selected') ?></div>
+                <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($_POST['programs'] ?? '') ?>">
 
                 <!-- Beneficiaries -->
                 <label>Beneficiaries *</label>
                 <button type="button" onclick="openBeneficiariesModal()">Select Beneficiaries</button>
-                <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                    <?= htmlspecialchars($_POST['beneficiaries'] ?? 'None selected') ?>
-                </div>
+                <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($_POST['beneficiaries'] ?? '[]') ?>">
 
                 <!-- Duration Range -->
                 <label>Implementation Duration *</label>
-<div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-    <input type="date" 
-           name="implementation_start" 
-           value="<?= htmlspecialchars($isPost ? $_POST['implementation_start'] : ($edit ? $entry['implementation_start'] : '')) ?>" 
-           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
-           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
-           required 
-           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-    <span>to</span>
-    <input type="date" 
-           name="implementation_end" 
-           value="<?= htmlspecialchars($isPost ? $_POST['implementation_end'] : ($edit ? $entry['implementation_end'] : '')) ?>" 
-           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
-           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
-           required 
-           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-</div>
+                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                    <input type="date" 
+                           name="implementation_start" 
+                           value="<?= htmlspecialchars($_POST['implementation_start'] ?? '') ?>" 
+                           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+                           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+                           required 
+                           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                    <span>to</span>
+                    <input type="date" 
+                           name="implementation_end" 
+                           value="<?= htmlspecialchars($_POST['implementation_end'] ?? '') ?>" 
+                           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
+                           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
+                           required 
+                           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                </div>
 
                 <button type="submit">Review & Add</button>
             </form>
@@ -287,11 +284,8 @@ $nav_links = [
             <h2>Select Offices Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                $offices = [];
                 if ($parent['offices_involved']) {
                     $offices = array_map('trim', explode(',', $parent['offices_involved']));
-                }
-                if (!empty($offices)) {
                     foreach ($offices as $o) {
                         if ($o !== '') {
                             echo '
@@ -320,11 +314,8 @@ $nav_links = [
             <h2>Select Programs Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                $programs = [];
                 if ($parent['programs_involved']) {
                     $programs = array_map('trim', explode(',', $parent['programs_involved']));
-                }
-                if (!empty($programs)) {
                     foreach ($programs as $p) {
                         if ($p !== '') {
                             echo '
@@ -403,7 +394,7 @@ $nav_links = [
         }
 
         if (display) {
-            display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+            display.textContent = values.length > 0 ? values.join(', ') : '';
         }
 
         closeModal(type + '-modal');
@@ -486,7 +477,7 @@ $nav_links = [
         const preview = document.getElementById('selected-beneficiaries');
         if (preview) {
             const count = selected.length;
-            preview.textContent = count > 0 ? `${count} type(s) selected` : 'None selected';
+            preview.textContent = count > 0 ? `${count} type(s) selected` : '';
         }
 
         closeModal('beneficiaries-modal');

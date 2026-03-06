@@ -96,7 +96,6 @@ $nav_links = [
     ['url' => '../index.php', 'label' => 'Home',    'active' => false],
     ['url' => 'view.php?id=' . $program_id, 'label' => 'Program', 'active' => false],
 ];
-
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -109,6 +108,28 @@ $nav_links = [
     <title>Edit Project</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
+    <style>
+        #save-btn {
+            background: #c8102e;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        #save-btn:disabled {
+            background: #d1d5db;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
+
+        #save-btn:hover:not(:disabled) {
+            background: #a50d24;
+        }
+    </style>
 </head>
 <body>
 
@@ -119,40 +140,32 @@ $nav_links = [
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php endif; ?>
 
-        <form method="POST">
+        <form method="POST" id="edit-form">
             <label for="project_title">Project Title *</label>
             <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($entry['project_title'] ?? '') ?>" required>
 
             <!-- Type -->
             <label>Type of Extension Service Agenda *</label>
-            <button type="button" onclick="openModal('type-modal')">Select Types</button>
-            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? 'None') ?>
-            </div>
+            <button type="button" onclick="loadModalCheckboxes('type'); openModal('type-modal')">Select Types</button>
+            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
             <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '') ?>">
 
             <!-- SDG -->
             <label>Sustainable Development Goals *</label>
-            <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['sdg_goals'] ?? 'None') ?>
-            </div>
+            <button type="button" onclick="loadModalCheckboxes('sdg'); openModal('sdg-modal')">Select SDGs</button>
+            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
             <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($entry['sdg_goals'] ?? '') ?>">
 
             <!-- Offices -->
             <label>Offices Involved *</label>
-            <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['offices_involved'] ?? 'None') ?>
-            </div>
+            <button type="button" onclick="loadModalCheckboxes('offices'); openModal('offices-modal')">Select Offices</button>
+            <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
             <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($entry['offices_involved'] ?? '') ?>">
 
             <!-- Programs -->
             <label>Programs Involved *</label>
-            <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;">
-                <?= htmlspecialchars($entry['programs_involved'] ?? 'None') ?>
-            </div>
+            <button type="button" onclick="loadModalCheckboxes('programs'); openModal('programs-modal')">Select Programs</button>
+            <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
             <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($entry['programs_involved'] ?? '') ?>">
 
             <!-- Beneficiaries -->
@@ -188,7 +201,7 @@ $nav_links = [
                        style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
             </div>
 
-            <button type="submit">Save Changes</button>
+            <button type="submit" id="save-btn" disabled><b>Save Changes</b></button>
         </form>
     </main>
 
@@ -197,21 +210,8 @@ $nav_links = [
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
             <h2>Select Type of Extension Service Agenda</h2>
-            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-                <?php
-                if ($parent['type_of_extension_service_agenda']) {
-                    $types = explode(', ', $parent['type_of_extension_service_agenda']);
-                    foreach ($types as $t) {
-                        $t = trim($t);
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($t) . '
-                            <input type="checkbox" value="' . htmlspecialchars($t) . '">
-                        </label>';
-                    }
-                } else {
-                    echo '<p>No types available from parent program.</p>';
-                }
-                ?>
+            <div id="type-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <!-- Dynamically populated -->
             </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('type')">Save</button>
@@ -225,21 +225,8 @@ $nav_links = [
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
             <h2>Select Sustainable Development Goals</h2>
-            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-                <?php
-                if ($parent['sdg_goals']) {
-                    $sdgs = explode(', ', $parent['sdg_goals']);
-                    foreach ($sdgs as $s) {
-                        $s = trim($s);
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($s) . '
-                            <input type="checkbox" value="' . htmlspecialchars($s) . '">
-                        </label>';
-                    }
-                } else {
-                    echo '<p>No SDGs available from parent program.</p>';
-                }
-                ?>
+            <div id="sdg-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <!-- Dynamically populated -->
             </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('sdg')">Save</button>
@@ -253,21 +240,8 @@ $nav_links = [
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('offices-modal')">×</span>
             <h2>Select Offices Involved</h2>
-            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-                <?php
-                if ($parent['offices_involved']) {
-                    $offices = explode(', ', $parent['offices_involved']);
-                    foreach ($offices as $o) {
-                        $o = trim($o);
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($o) . '
-                            <input type="checkbox" value="' . htmlspecialchars($o) . '">
-                        </label>';
-                    }
-                } else {
-                    echo '<p>No offices available from parent program.</p>';
-                }
-                ?>
+            <div id="offices-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <!-- Dynamically populated -->
             </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('offices')">Save</button>
@@ -281,21 +255,8 @@ $nav_links = [
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('programs-modal')">×</span>
             <h2>Select Programs Involved</h2>
-            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-                <?php
-                if ($parent['programs_involved']) {
-                    $progs = explode(', ', $parent['programs_involved']);
-                    foreach ($progs as $p) {
-                        $p = trim($p);
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($p) . '
-                            <input type="checkbox" value="' . htmlspecialchars($p) . '">
-                        </label>';
-                    }
-                } else {
-                    echo '<p>No programs available from parent program.</p>';
-                }
-                ?>
+            <div id="programs-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <!-- Dynamically populated -->
             </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('programs')">Save</button>
@@ -304,7 +265,7 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Beneficiaries Modal -->
+    <!-- Beneficiaries Modal (unchanged - already working) -->
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
@@ -324,6 +285,7 @@ $nav_links = [
     </div>
 
     <script>
+    // Open modal + load checkboxes for non-beneficiary modals
     function openModal(modalId) {
         document.getElementById(modalId).classList.add('active');
         document.body.classList.add('modal-open');
@@ -343,25 +305,79 @@ $nav_links = [
         const display = document.getElementById('selected-' + type);
 
         if (hidden) hidden.value = values.join(', ');
-        if (display) display.textContent = values.length > 0 ? values.join(', ') : 'None selected';
+        if (display) display.textContent = values.length > 0 ? values.join(', ') : '';
 
         closeModal(type + '-modal');
+        syncPreviews();
+        checkFormChanges();
     }
 
+    // Dynamic load for Type, SDG, Offices, Programs modals
+    function loadModalCheckboxes(type) {
+        const container = document.getElementById(type + '-checkboxes');
+        const hidden = document.getElementById(type + '-hidden');
+        if (!container || !hidden) return;
+
+        const currentValues = hidden.value.split(', ').map(v => v.trim()).filter(v => v);
+
+        // Parent values (from PHP)
+        let parentValues = [];
+        <?php
+        if ($parent['type_of_extension_service_agenda']) {
+            $types = explode(', ', $parent['type_of_extension_service_agenda']);
+            echo "if (type === 'type') parentValues = " . json_encode(array_map('trim', $types)) . ";";
+        }
+        if ($parent['sdg_goals']) {
+            $sdgs = explode(', ', $parent['sdg_goals']);
+            echo "if (type === 'sdg') parentValues = " . json_encode(array_map('trim', $sdgs)) . ";";
+        }
+        if ($parent['offices_involved']) {
+            $offices = explode(', ', $parent['offices_involved']);
+            echo "if (type === 'offices') parentValues = " . json_encode(array_map('trim', $offices)) . ";";
+        }
+        if ($parent['programs_involved']) {
+            $progs = explode(', ', $parent['programs_involved']);
+            echo "if (type === 'programs') parentValues = " . json_encode(array_map('trim', $progs)) . ";";
+        }
+        ?>
+
+        container.innerHTML = ''; // Clear old content
+
+        parentValues.forEach(val => {
+            if (!val) return;
+            const label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            label.style.justifyContent = 'space-between';
+            label.style.cursor = 'pointer';
+            label.style.padding = '8px';
+            label.style.borderRadius = '6px';
+
+            const checked = currentValues.includes(val) ? 'checked' : '';
+
+            label.innerHTML = `
+                ${val}
+                <input type="checkbox" value="${val}" ${checked}>
+            `;
+
+            container.appendChild(label);
+        });
+    }
+
+    // Beneficiaries (unchanged - already working)
     let beneficiariesData = [];
 
     function loadBeneficiaries() {
         const rowsDiv = document.getElementById('beneficiary-rows');
         rowsDiv.innerHTML = '';
 
-        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-        const currentJson = <?= json_encode($entry['beneficiaries_json'] ?? '[]') ?>;
-
-        let parentEntries = [];
+        const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
         let currentEntries = [];
-
-        try { parentEntries = JSON.parse(parentJson); } catch (e) {}
         try { currentEntries = JSON.parse(currentJson); } catch (e) {}
+
+        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+        let parentEntries = [];
+        try { parentEntries = JSON.parse(parentJson); } catch (e) {}
 
         if (parentEntries.length === 0) {
             rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries in parent program.</p>';
@@ -392,7 +408,6 @@ $nav_links = [
             row.innerHTML = `
                 <input type="checkbox" ${entry.selected ? 'checked' : ''} 
                        onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
-
                 <div style="flex: 1;">
                     <strong>${entry.type}</strong><br>
                     <span style="color:#6b7280;">
@@ -422,16 +437,98 @@ $nav_links = [
         const preview = document.getElementById('selected-beneficiaries');
         if (preview) {
             const count = selected.length;
-            preview.textContent = count > 0 ? `${count} type(s) selected` : 'None selected';
+            preview.textContent = count > 0 ? `${count} type(s) selected` : '';
         }
 
         closeModal('beneficiaries-modal');
+        syncPreviews();
+        checkFormChanges();
     }
 
     function openBeneficiariesModal() {
         openModal('beneficiaries-modal');
         loadBeneficiaries();
     }
+
+    // Sync preview divs
+    function syncPreviews() {
+        const pairs = [
+            ['type-hidden', 'selected-types'],
+            ['sdg-hidden', 'selected-sdgs'],
+            ['offices-hidden', 'selected-offices'],
+            ['programs-hidden', 'selected-programs']
+        ];
+
+        pairs.forEach(([hId, dId]) => {
+            const hidden = document.getElementById(hId);
+            const display = document.getElementById(dId);
+            if (hidden && display) {
+                const val = hidden.value.trim();
+                display.textContent = val;
+            }
+        });
+
+        const benHidden = document.getElementById('beneficiaries-hidden');
+        const benDisplay = document.getElementById('selected-beneficiaries');
+        if (benHidden && benDisplay) {
+            try {
+                const data = JSON.parse(benHidden.value || '[]');
+                const count = data.length;
+                benDisplay.textContent = count > 0 ? `${count} type(s) selected` : '';
+            } catch (e) {
+                benDisplay.textContent = '';
+            }
+        }
+    }
+
+    let originalValues = {};
+
+    function checkFormChanges() {
+        const currentValues = {
+            project_title: document.querySelector('[name="project_title"]').value.trim(),
+            implementation_start: document.querySelector('[name="implementation_start"]').value.trim(),
+            implementation_end: document.querySelector('[name="implementation_end"]').value.trim(),
+            type_agenda: document.getElementById('type-hidden')?.value.trim() || '',
+            sdg_goals: document.getElementById('sdg-hidden')?.value.trim() || '',
+            offices: document.getElementById('offices-hidden')?.value.trim() || '',
+            programs: document.getElementById('programs-hidden')?.value.trim() || '',
+            beneficiaries: document.getElementById('beneficiaries-hidden')?.value.trim() || ''
+        };
+
+        let changed = false;
+        for (let key in originalValues) {
+            if (currentValues[key] !== originalValues[key]) {
+                changed = true;
+                break;
+            }
+        }
+
+        document.getElementById('save-btn').disabled = !changed;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        originalValues = {
+            project_title: document.querySelector('[name="project_title"]').value.trim(),
+            implementation_start: document.querySelector('[name="implementation_start"]').value.trim(),
+            implementation_end: document.querySelector('[name="implementation_end"]').value.trim(),
+            type_agenda: document.getElementById('type-hidden').value.trim(),
+            sdg_goals: document.getElementById('sdg-hidden').value.trim(),
+            offices: document.getElementById('offices-hidden').value.trim(),
+            programs: document.getElementById('programs-hidden').value.trim(),
+            beneficiaries: document.getElementById('beneficiaries-hidden').value.trim()
+        };
+
+        syncPreviews();
+        setTimeout(syncPreviews, 100);
+        setTimeout(syncPreviews, 500);
+
+        document.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('input', checkFormChanges);
+            el.addEventListener('change', checkFormChanges);
+        });
+
+        checkFormChanges();
+    });
     </script>
 </body>
 </html>

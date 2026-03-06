@@ -6,7 +6,7 @@ define('BASE_URL', '/opmm-dashboard/');
 
 // Make sure version is defined (you can move this to config if preferred)
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '10.0 Alpha');
+    define('APP_VERSION', '10.1 Alpha');
 }
 ?>
 
