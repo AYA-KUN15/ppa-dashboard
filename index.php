@@ -33,55 +33,7 @@ try {
         ];
     }
 } catch (PDOException $e) {
-    // silent fail or log
-}
-
-// Your existing due monitoring list (kept as-is)
-$today = date('Y-m-d');
-$currentDayOfWeek = date('N');
-
-try {
-    $stmt = $pdo->query("
-        SELECT id, title, quarter, fiscal_year, frequency_monitoring, date_duration
-        FROM ppa_entries
-        WHERE status = 'active'
-        ORDER BY created_at DESC
-    ");
-    $allEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $dueToday = [];
-    foreach ($allEntries as $entry) {
-        $freq = strtolower($entry['frequency_monitoring'] ?? '');
-        $needsAttention = false;
-
-        switch ($freq) {
-            case 'daily':
-                $needsAttention = true;
-                break;
-            case 'weekly':
-                $needsAttention = true;
-                break;
-            case 'monthly':
-                $dayOfMonth = date('j', strtotime($today));
-                if (strpos($entry['date_duration'], (string)$dayOfMonth) !== false) {
-                    $needsAttention = true;
-                }
-                break;
-            case 'quarterly':
-            case 'semi-annually':
-            case 'annually':
-            case 'as needed':
-            case 'event-based':
-                $needsAttention = true;
-                break;
-        }
-
-        if ($needsAttention) {
-            $dueToday[] = $entry;
-        }
-    }
-} catch (PDOException $e) {
-    $dueToday = [];
+    // silent fail
 }
 
 $nav_links = [
@@ -187,40 +139,8 @@ include 'includes/header.php';
     <main class="dashboard-content">
         <h1>PPA Monitoring Dashboard</h1>
 
-        <!-- Calendar -->
+        <!-- Calendar (only content now) -->
         <div id="calendar"></div>
-
-        <!-- Due monitoring list -->
-        <p style="margin-top: 40px;">Items that may need attention based on monitoring frequency.</p>
-
-        <?php if (empty($dueToday)): ?>
-            <p class="info">No PPAs require monitoring at this time.</p>
-        <?php else: ?>
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <h3>Due for Monitoring</h3>
-                    <p class="placeholder"><?= count($dueToday) ?></p>
-                </div>
-            </div>
-
-            <div class="due-list" style="margin-top: 32px;">
-                <h3>Activities to Monitor</h3>
-                <ul style="list-style: none; padding: 0;">
-                    <?php foreach ($dueToday as $entry): ?>
-                        <li style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-                            <a href="opmm/view.php?id=<?= $entry['id'] ?>" style="text-decoration: none; color: #374151;">
-                                <strong><?= htmlspecialchars($entry['title']) ?></strong><br>
-                                <small>
-                                    <?= htmlspecialchars($entry['quarter'] ?? 'N/A') ?> Quarter, 
-                                    FY <?= htmlspecialchars($entry['fiscal_year'] ?? 'N/A') ?>
-                                    · <?= htmlspecialchars($entry['frequency_monitoring'] ?? 'Not specified') ?>
-                                </small>
-                            </a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-        <?php endif; ?>
     </main>
 
     <script>

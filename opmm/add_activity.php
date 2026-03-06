@@ -216,12 +216,12 @@ $nav_links = [
                 <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($_POST['sdg_goals'] ?? '') ?>">
 
                 <label>Frequency of Monitoring *</label>
-                <select name="frequency_monitoring" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 400px;">
+                <select name="frequency_monitoring" id="frequency_monitoring" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 400px;">
                     <option value="">Select Frequency</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Semi-Annually">Semi-Annually</option>
-                    <option value="Annually">Annually</option>
+                    <option value="Monthly"    <?= ($_POST['frequency_monitoring'] ?? '') === 'Monthly'    ? 'selected' : '' ?>>Monthly</option>
+                    <option value="Quarterly"  <?= ($_POST['frequency_monitoring'] ?? '') === 'Quarterly'  ? 'selected' : '' ?>>Quarterly</option>
+                    <option value="Semi-Annually" <?= ($_POST['frequency_monitoring'] ?? '') === 'Semi-Annually' ? 'selected' : '' ?>>Semi-Annually</option>
+                    <option value="Annually"   <?= ($_POST['frequency_monitoring'] ?? '') === 'Annually'   ? 'selected' : '' ?>>Annually</option>
                 </select>
 
                 <label>Offices Involved *</label>
@@ -247,11 +247,11 @@ $nav_links = [
                         <?php if ($isSingleMonth): ?>
                             <input type="text" value="<?= htmlspecialchars($parentMonth) ?>" readonly 
                                    style="flex: 1; min-width: 140px; background: #f0f0f0; cursor: not-allowed; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-                            <input type="number" name="start_day" min="1" max="<?= $daysInMonth ?>" 
+                            <input type="number" name="start_day" id="start_day" min="1" max="<?= $daysInMonth ?>" 
                                    placeholder="Day" value="<?= htmlspecialchars($_POST['start_day'] ?? '') ?>" required 
                                    style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                         <?php else: ?>
-                            <select name="start_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <select name="start_month" id="start_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
                                 <option value="">Month</option>
                                 <?php
                                 $shownMonths = [];
@@ -269,7 +269,7 @@ $nav_links = [
                                 }
                                 ?>
                             </select>
-                            <input type="number" name="start_day" min="1" max="31" 
+                            <input type="number" name="start_day" id="start_day" min="1" max="31" 
                                    placeholder="Day" value="<?= htmlspecialchars($_POST['start_day'] ?? '') ?>" required 
                                    style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                         <?php endif; ?>
@@ -281,12 +281,12 @@ $nav_links = [
                         <?php if ($isSingleMonth): ?>
                             <input type="text" value="<?= htmlspecialchars($parentMonth) ?>" readonly 
                                    style="flex: 1; min-width: 140px; background: #f0f0f0; cursor: not-allowed; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-                            <input type="number" name="end_day" min="1" max="<?= $daysInMonth ?>" 
+                            <input type="number" name="end_day" id="end_day" min="1" max="<?= $daysInMonth ?>" 
                                    placeholder="Day (optional)" value="<?= htmlspecialchars($_POST['end_day'] ?? '') ?>" 
                                    style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                             <small style="color: #6b7280; font-size: 0.85rem;">(leave blank to use same day as start)</small>
                         <?php else: ?>
-                            <select name="end_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <select name="end_month" id="end_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
                                 <option value="">Month</option>
                                 <?php
                                 $shownMonths = [];
@@ -300,7 +300,7 @@ $nav_links = [
                                 }
                                 ?>
                             </select>
-                            <input type="number" name="end_day" min="1" max="31" 
+                            <input type="number" name="end_day" id="end_day" min="1" max="31" 
                                    placeholder="Day" value="<?= htmlspecialchars($_POST['end_day'] ?? '') ?>" required 
                                    style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                         <?php endif; ?>
@@ -312,7 +312,7 @@ $nav_links = [
         </div>
     </main>
 
-    <!-- Type Modal - from parent project -->
+    <!-- Type Modal -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
@@ -340,7 +340,7 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- SDG Modal - from parent project -->
+    <!-- SDG Modal -->
     <div id="sdg-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
@@ -475,7 +475,6 @@ $nav_links = [
         const rowsDiv = document.getElementById('beneficiary-rows');
         rowsDiv.innerHTML = '';
 
-        // Use current form state from hidden input (not DB/parent)
         const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
         let currentEntries = [];
         try { currentEntries = JSON.parse(currentJson); } catch (e) {}
@@ -584,11 +583,129 @@ $nav_links = [
         }
     }
 
+    // Frequency + Duration restrictions (fully integrated)
+    function updateDurationFields() {
+        const freqSelect = document.querySelector('#frequency_monitoring');
+        if (!freqSelect) return;
+
+        const freq = freqSelect.value.trim().toLowerCase();
+
+        const startMonthSelect = document.querySelector('#start_month');
+        const startDayInput    = document.querySelector('#start_day');
+        const endMonthSelect   = document.querySelector('#end_month');
+        const endDayInput      = document.querySelector('#end_day');
+
+        // Reset restrictions
+        if (endMonthSelect) {
+            endMonthSelect.disabled = false;
+            Array.from(endMonthSelect.options).forEach(opt => {
+                if (opt.value) {
+                    opt.disabled = false;
+                    opt.hidden = false;
+                }
+            });
+        }
+        if (endDayInput)   endDayInput.disabled = false;
+        if (startDayInput) startDayInput.disabled = false;
+
+        if (!startMonthSelect || !endMonthSelect) return;
+
+        const monthNames = ["January","February","March","April","May","June",
+                            "July","August","September","October","November","December"];
+        const getMonthIndex = name => monthNames.indexOf(name);
+
+        // Helper: last day of a month
+        function getLastDayOfMonth(monthName) {
+            const year = new Date().getFullYear();
+            const monthNum = getMonthIndex(monthName) + 1;
+            return new Date(year, monthNum, 0).getDate();
+        }
+
+        // Helper: reset end day to valid value
+        function resetEndDay() {
+            if (!endDayInput || !endMonthSelect.value) return;
+            const lastDay = getLastDayOfMonth(endMonthSelect.value);
+            const current = parseInt(endDayInput.value) || 1;
+            endDayInput.value = Math.min(current, lastDay);
+        }
+
+        if (freq === 'monthly') {
+            if (endMonthSelect) {
+                endMonthSelect.disabled = true;
+                if (startMonthSelect.value) {
+                    endMonthSelect.value = startMonthSelect.value;
+                }
+            }
+            if (endDayInput)    endDayInput.disabled = true;
+
+            if (startMonthSelect.value && startDayInput?.value) {
+                const lastDay = getLastDayOfMonth(startMonthSelect.value);
+                endDayInput.value = lastDay;
+            }
+        } 
+        else if (freq === 'annually') {
+            if (endMonthSelect) {
+                endMonthSelect.disabled = true;
+                endMonthSelect.value = "December";
+            }
+            if (endDayInput) {
+                endDayInput.disabled = true;
+                endDayInput.value = "31";
+            }
+        } 
+        else if (freq === 'quarterly' || freq === 'semi-annually') {
+            const startMonthName = startMonthSelect.value;
+            if (!startMonthName) return;
+
+            const startIdx = getMonthIndex(startMonthName);
+            const range = freq === 'quarterly' ? 3 : 6;
+
+            Array.from(endMonthSelect.options).forEach(opt => {
+                if (!opt.value) return;
+                const optIdx = getMonthIndex(opt.value);
+                if (optIdx >= startIdx && optIdx < startIdx + range) {
+                    opt.disabled = false;
+                    opt.hidden = false;
+                } else {
+                    opt.disabled = true;
+                    opt.hidden = true;
+                }
+            });
+
+            if (endMonthSelect.value && endMonthSelect.options[endMonthSelect.selectedIndex].disabled) {
+                endMonthSelect.value = startMonthName;
+            }
+
+            resetEndDay();
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        const freqSelect = document.querySelector('#frequency_monitoring');
+        if (freqSelect) {
+            freqSelect.addEventListener('change', updateDurationFields);
+        }
+
+        const startMonth = document.querySelector('#start_month');
+        if (startMonth) {
+            startMonth.addEventListener('change', updateDurationFields);
+        }
+
+        const startDay = document.querySelector('#start_day');
+        if (startDay) {
+            startDay.addEventListener('input', updateDurationFields);
+        }
+
+        const endMonth = document.querySelector('#end_month');
+        if (endMonth) {
+            endMonth.addEventListener('change', updateDurationFields);
+        }
+
+        updateDurationFields();
         syncPreviews();
         setTimeout(syncPreviews, 100);
-        setTimeout(syncPreviews, 500);
     });
     </script>
+
 </body>
 </html>

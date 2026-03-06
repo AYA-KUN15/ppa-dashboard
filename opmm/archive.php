@@ -125,16 +125,16 @@ $nav_links = [
                 <div class="quarter-buttons">
                     <?php foreach ($programs as $program): ?>
                         <div class="quarter-item">
-                            <!-- Main card button goes to edit (to reactivate) -->
+                            <!-- Main card button goes to VIEW page -->
                             <button class="quarter-btn completed-project"
-                                    onclick="window.location.href='edit.php?mode=program&id=<?= $program['id'] ?>'">
+                                    onclick="window.location.href='view.php?mode=program&id=<?= $program['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
                                     M&E Phase
                                 </span>
                             </button>
 
-                            <!-- Edit pencil icon - also goes to edit.php -->
+                            <!-- Pencil icon goes to EDIT page (to allow reactivation/changes) -->
                             <button class="action-icon edit-icon-btn"
                                     onclick="window.location.href='edit.php?mode=program&id=<?= $program['id'] ?>'"
                                     title="Edit program">

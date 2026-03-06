@@ -618,6 +618,132 @@ $nav_links = [
             el.addEventListener('change', checkFormChanges);
         });
     });
+
+    // Duration + Frequency restrictions
+function updateDurationFields() {
+    const freqSelect = document.querySelector('select[name="frequency_monitoring"]');
+    if (!freqSelect) return;
+
+    const freq = freqSelect.value.trim().toLowerCase();
+
+    const startMonthSelect = document.querySelector('select[name="start_month"]');
+    const startDayInput   = document.querySelector('input[name="start_day"]');
+    const endMonthSelect  = document.querySelector('select[name="end_month"]');
+    const endDayInput     = document.querySelector('input[name="end_day"]');
+
+    // Reset all restrictions first
+    if (endMonthSelect) {
+        endMonthSelect.disabled = false;
+        Array.from(endMonthSelect.options).forEach(opt => {
+            opt.disabled = false;
+            opt.hidden = false;
+        });
+    }
+    if (endDayInput)   endDayInput.disabled = false;
+    if (startDayInput) startDayInput.disabled = false;
+
+    if (!startMonthSelect || !endMonthSelect) return;
+
+    const monthNames = ["January","February","March","April","May","June",
+                        "July","August","September","October","November","December"];
+
+    const getMonthIndex = (monthName) => monthNames.indexOf(monthName);
+
+    // Helper: Set end day to last valid day of selected month
+    function setEndDayToLastValid() {
+        if (!endMonthSelect.value || !endDayInput) return;
+        const year = new Date().getFullYear(); // dummy year for calculation
+        const monthNum = getMonthIndex(endMonthSelect.value) + 1;
+        const lastDay = new Date(year, monthNum, 0).getDate();
+        endDayInput.value = Math.min(parseInt(startDayInput?.value || lastDay), lastDay);
+    }
+
+    if (freq === 'monthly') {
+        // Monthly: end = last day of start month → disable end fields
+        endMonthSelect.disabled = true;
+        endDayInput.disabled = true;
+
+        if (startMonthSelect.value && startDayInput) {
+            const startMonthIdx = getMonthIndex(startMonthSelect.value);
+            const year = new Date().getFullYear();
+            const daysInMonth = new Date(year, startMonthIdx + 1, 0).getDate();
+
+            // Auto-set end day when start day changes
+            startDayInput.addEventListener('input', () => {
+                if (startDayInput.value) {
+                    endDayInput.value = daysInMonth;
+                }
+            });
+
+            // Trigger once
+            if (startDayInput.value) {
+                endDayInput.value = daysInMonth;
+            }
+        }
+    } 
+    else if (freq === 'annually') {
+        // Annually: end = Dec 31 of same year → disable end fields
+        endMonthSelect.disabled = true;
+        endDayInput.disabled = true;
+
+        endMonthSelect.value = "December";
+        endDayInput.value = "31";
+    } 
+    else if (freq === 'quarterly' || freq === 'semi-annually') {
+        // Limit end month range
+        const startMonthName = startMonthSelect.value;
+        if (!startMonthName) return;
+
+        const startIdx = getMonthIndex(startMonthName);
+        const rangeMonths = freq === 'quarterly' ? 3 : 6;
+
+        Array.from(endMonthSelect.options).forEach(opt => {
+            if (!opt.value) return; // skip placeholder
+            const optIdx = getMonthIndex(opt.value);
+            // Allow from start month up to start + range - 1
+            if (optIdx >= startIdx && optIdx < startIdx + rangeMonths) {
+                opt.disabled = false;
+                opt.hidden = false;
+            } else {
+                opt.disabled = true;
+                opt.hidden = true;
+            }
+        });
+
+        // If current end month is now invalid, reset to start month
+        if (endMonthSelect.value && endMonthSelect.options[endMonthSelect.selectedIndex].disabled) {
+            endMonthSelect.value = startMonthName;
+        }
+
+        // Re-validate end day when end month changes
+        endMonthSelect.addEventListener('change', setEndDayToLastValid);
+        setEndDayToLastValid(); // initial check
+    }
+    // Other frequencies (daily, weekly, etc.) → no restrictions
+}
+
+// Attach listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const freqSelect = document.querySelector('select[name="frequency_monitoring"]');
+    if (freqSelect) {
+        freqSelect.addEventListener('change', updateDurationFields);
+    }
+
+    // Run once on load (important for edit page)
+    updateDurationFields();
+
+    // Re-run when start month changes (quarterly/semi)
+    const startMonth = document.querySelector('select[name="start_month"]');
+    if (startMonth) {
+        startMonth.addEventListener('change', updateDurationFields);
+    }
+
+    // For monthly/annually: re-validate end day when start day changes
+    const startDay = document.querySelector('input[name="start_day"]');
+    if (startDay) {
+        startDay.addEventListener('input', updateDurationFields);
+    }
+});
     </script>
 
 </body>
