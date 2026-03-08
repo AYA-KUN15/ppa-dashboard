@@ -42,28 +42,40 @@ try {
     $projListStmt->execute([$id]);
     $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Check if ALL projects are completed (all their activities are completed)
-    $allProjectsCompleted = true;
-    foreach ($projectsList as $proj) {
-        // Skip if project already marked completed
-        if ($proj['status'] !== 'completed') {
-            $actStmt = $pdo->prepare("
-                SELECT COUNT(*) AS total, 
-                       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
-                FROM activity_entries WHERE project_id = ?
-            ");
-            $actStmt->execute([$proj['id']]);
-            $counts = $actStmt->fetch(PDO::FETCH_ASSOC);
+    // NEW: Improved completion logic
+    // Program is completed ONLY if:
+    // - It has at least one project, AND
+    // - All projects are completed (no active projects left)
+    $programStatus = 'active'; // default
 
-            if ($counts['total'] > 0 && $counts['completed'] != $counts['total']) {
-                $allProjectsCompleted = false;
-                break;
+    if (!empty($projectsList)) {
+        $allProjectsCompleted = true;
+        foreach ($projectsList as $proj) {
+            if ($proj['status'] !== 'completed') {
+                // Check if project has any active activities
+                $actStmt = $pdo->prepare("
+                    SELECT COUNT(*) AS active_count
+                    FROM activity_entries 
+                    WHERE project_id = ? AND status = 'active'
+                ");
+                $actStmt->execute([$proj['id']]);
+                $activeCount = $actStmt->fetchColumn();
+
+                if ($activeCount > 0) {
+                    $allProjectsCompleted = false;
+                    break;
+                }
             }
         }
-    }
 
-    // Auto-update program status if needed
-    $programStatus = $allProjectsCompleted ? 'completed' : 'active';
+        // If there are projects AND all are completed → mark program completed
+        if ($allProjectsCompleted) {
+            $programStatus = 'completed';
+        }
+    }
+    // If zero projects → stay active (brand new program)
+
+    // Auto-update program status if it changed
     if ($programStatus !== $program['status']) {
         $updateProg = $pdo->prepare("
             UPDATE program_entries 
@@ -95,7 +107,6 @@ $nav_links = [
     <link rel="stylesheet" href="../css/style.css">
 
     <style>
-        /* Flex layout for quarter-item */
         .quarter-item {
             display: flex;
             align-items: center;
@@ -127,7 +138,6 @@ $nav_links = [
             color: #6b7280;
         }
 
-        /* Edit icon */
         .edit-icon-btn {
             flex: 0 0 42px;
             width: 42px;
@@ -152,7 +162,6 @@ $nav_links = [
             background: rgba(200, 16, 46, 0.1);
         }
 
-        /* Completed green style for projects */
         .quarter-btn.completed-project {
             background: #ecfdf5 !important;
             border: 2px solid #10b981 !important;
@@ -204,7 +213,7 @@ $nav_links = [
                         echo implode(' | ', $parts);
                         if ($total > 0) echo " | Total: $total";
                     } else {
-                        echo '';
+                        echo 'None';
                     }
                     ?>
                 </p>

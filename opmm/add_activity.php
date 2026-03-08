@@ -35,6 +35,10 @@ $isSingleMonth = (date('Y-m', strtotime($parentStart)) === date('Y-m', strtotime
 
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, date('n', strtotime($parentStart)), $parentYear);
 
+// Get parent end month/day for Annually auto-fill
+$parentEndMonth = date('F', strtotime($parentEnd));
+$parentEndDay   = date('j', strtotime($parentEnd));
+
 $error = '';
 $show_confirmation = false;
 
@@ -83,32 +87,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please fill all required fields. Start day must be between 1 and ' . $daysInMonth . ' for ' . $parentMonth . '.';
         } elseif (!$isSingleMonth && (empty($start_month) || empty($end_month))) {
             $error = 'Please select start and end months.';
-        } elseif (!$isSingleMonth && ($end_day < 1 || $end_day > $daysInMonth)) {
-            $error = 'End day must be between 1 and ' . $daysInMonth . '.';
-        } elseif (!$isSingleMonth && $end_day < $start_day && $end_month === $start_month) {
-            $error = 'End day cannot be before start day in the same month.';
         } else {
-            $startDate = date('Y-m-d', strtotime("$start_month $start_day $parentYear"));
+            // NEW: Calculate days in the SELECTED end month
+            $endMonthNum = date('n', strtotime("$end_month 1 $parentYear"));
+            $daysInEndMonth = cal_days_in_month(CAL_GREGORIAN, $endMonthNum, $parentYear);
 
-            if ($isSingleMonth && $end_day === 0) {
-                $endDate = $startDate;
+            if (!$isSingleMonth && ($end_day < 1 || $end_day > $daysInEndMonth)) {
+                $error = "End day must be between 1 and $daysInEndMonth for $end_month.";
+            } elseif (!$isSingleMonth && $end_day < $start_day && $end_month === $start_month) {
+                $error = 'End day cannot be before start day in the same month.';
             } else {
-                $endDate = date('Y-m-d', strtotime("$end_month $end_day $parentYear"));
-            }
+                $startDate = date('Y-m-d', strtotime("$start_month $start_day $parentYear"));
 
-            $_SESSION['pending_activity'] = [
-                'project_id' => $project_id,
-                'activity_name' => $activity_name,
-                'implementation_start' => $startDate,
-                'implementation_end' => $endDate,
-                'type_of_extension_service_agenda' => $type_agenda,
-                'sdg_goals' => $sdg_goals,
-                'frequency_monitoring' => $frequency_monitoring,
-                'offices_involved' => $offices,
-                'programs_involved' => $programs,
-                'beneficiaries_json' => $beneficiaries
-            ];
-            $show_confirmation = true;
+                if ($isSingleMonth && $end_day === 0) {
+                    $endDate = $startDate;
+                } else {
+                    $endDate = date('Y-m-d', strtotime("$end_month $end_day $parentYear"));
+                }
+
+                $_SESSION['pending_activity'] = [
+                    'project_id' => $project_id,
+                    'activity_name' => $activity_name,
+                    'implementation_start' => $startDate,
+                    'implementation_end' => $endDate,
+                    'type_of_extension_service_agenda' => $type_agenda,
+                    'sdg_goals' => $sdg_goals,
+                    'frequency_monitoring' => $frequency_monitoring,
+                    'offices_involved' => $offices,
+                    'programs_involved' => $programs,
+                    'beneficiaries_json' => $beneficiaries
+                ];
+                $show_confirmation = true;
+            }
         }
     }
 }
@@ -312,7 +322,7 @@ $nav_links = [
         </div>
     </main>
 
-    <!-- Type Modal -->
+    <!-- Modals (unchanged from your version) -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
@@ -583,7 +593,7 @@ $nav_links = [
         }
     }
 
-    // Frequency + Duration restrictions (fully integrated)
+    // Frequency + Duration restrictions (updated for Annually using parent end date)
     function updateDurationFields() {
         const freqSelect = document.querySelector('#frequency_monitoring');
         if (!freqSelect) return;
@@ -644,13 +654,14 @@ $nav_links = [
             }
         } 
         else if (freq === 'annually') {
+            // Use parent's end month/day
             if (endMonthSelect) {
                 endMonthSelect.disabled = true;
-                endMonthSelect.value = "December";
+                endMonthSelect.value = "<?= htmlspecialchars($parentEndMonth) ?>";
             }
             if (endDayInput) {
                 endDayInput.disabled = true;
-                endDayInput.value = "31";
+                endDayInput.value = "<?= htmlspecialchars($parentEndDay) ?>";
             }
         } 
         else if (freq === 'quarterly' || freq === 'semi-annually') {
@@ -699,6 +710,19 @@ $nav_links = [
         const endMonth = document.querySelector('#end_month');
         if (endMonth) {
             endMonth.addEventListener('change', updateDurationFields);
+        }
+
+        // NEW: Dynamic max for end_day based on selected end_month
+        if (endMonth && endDay) {
+            endMonth.addEventListener('change', () => {
+                const month = endMonth.value;
+                if (!month) return;
+                const year = new Date().getFullYear();
+                const monthNum = new Date(`${month} 1, ${year}`).getMonth() + 1;
+                const lastDay = new Date(year, monthNum, 0).getDate();
+                endDay.max = lastDay;
+                if (endDay.value > lastDay) endDay.value = lastDay;
+            });
         }
 
         updateDurationFields();
