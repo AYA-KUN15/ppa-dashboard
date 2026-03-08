@@ -9,7 +9,9 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once 'config/db.php';
 
-// FullCalendar events – only active activities with duration range
+// ────────────────────────────────────────────────
+// 1. Calendar: active activities duration bars only
+// ────────────────────────────────────────────────
 $events = [];
 
 try {
@@ -17,8 +19,8 @@ try {
         SELECT id, activity_name, implementation_start, implementation_end
         FROM activity_entries
         WHERE status = 'active'
-        AND implementation_start IS NOT NULL
-        AND implementation_end IS NOT NULL
+          AND implementation_start IS NOT NULL
+          AND implementation_end IS NOT NULL
     ");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $events[] = [
@@ -34,6 +36,77 @@ try {
     }
 } catch (PDOException $e) {
     // silent fail
+}
+
+// ────────────────────────────────────────────────
+// 2. Monitoring Due: calculate due activities
+// ────────────────────────────────────────────────
+$today = date('Y-m-d');
+$dueActivities = [];
+
+try {
+    $stmt = $pdo->query("
+        SELECT id, activity_name, implementation_start, implementation_end, frequency_monitoring
+        FROM activity_entries
+        WHERE status = 'active'
+          AND implementation_start IS NOT NULL
+          AND implementation_end IS NOT NULL
+          AND frequency_monitoring IN ('Monthly', 'Quarterly', 'Semi-Annually', 'Annually')
+        ORDER BY implementation_start ASC
+    ");
+    $activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($activities as $act) {
+        $freq = strtolower($act['frequency_monitoring']);
+        $start = new DateTime($act['implementation_start']);
+        $end   = new DateTime($act['implementation_end']);
+
+        // Approximate next due date (simple interval from start)
+        $nextDue = clone $start;
+
+        switch ($freq) {
+            case 'monthly':
+                $nextDue->modify('first day of next month');
+                break;
+            case 'quarterly':
+                $month = (int)$start->format('n');
+                $nextQ = ceil($month / 3) * 3 + 1;
+                if ($nextQ > 12) $nextQ -= 12;
+                $nextDue->setDate($start->format('Y'), $nextQ, 1);
+                if ($nextDue <= $start) $nextDue->modify('+1 year');
+                break;
+            case 'semi-annually':
+                $month = (int)$start->format('n');
+                $nextHalf = ($month <= 6) ? 7 : 1;
+                $yearAdd = ($month <= 6) ? 0 : 1;
+                $nextDue->setDate($start->format('Y') + $yearAdd, $nextHalf, 1);
+                break;
+            case 'annually':
+                $nextDue->modify('+1 year');
+                $nextDue->setDate($nextDue->format('Y'), $start->format('n'), $start->format('j'));
+                break;
+            default:
+                continue 2;
+        }
+
+        // If next due is in the past or very soon → consider it due
+        $dueDate = $nextDue->format('Y-m-d');
+        $daysUntil = (new DateTime($dueDate))->diff(new DateTime($today))->days * 
+                     ((new DateTime($dueDate) < new DateTime($today)) ? -1 : 1);
+
+        if ($dueDate <= $today || $daysUntil <= 30) {
+            $dueActivities[] = [
+                'id'       => $act['id'],
+                'name'     => $act['activity_name'],
+                'freq'     => ucfirst($freq),
+                'due'      => $dueDate,
+                'overdue'  => $dueDate < $today,
+                'days'     => $daysUntil
+            ];
+        }
+    }
+} catch (PDOException $e) {
+    $dueActivities = [];
 }
 
 $nav_links = [
@@ -66,6 +139,7 @@ include 'includes/header.php';
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border: 1px solid #E5E7EB;
         }
+
         .fc-toolbar-chunk:first-child {
             display: flex !important;
             align-items: center !important;
@@ -122,14 +196,108 @@ include 'includes/header.php';
             color: #374151;
             font-weight: 600;
         }
-        @media (max-width: 576px) {
-            .fc-toolbar-chunk:first-child {
-                gap: 3px !important;
-            }
-            .fc .fc-toolbar-chunk:first-child .fc-button {
-                padding: 5px 8px !important;
-                font-size: 0.85em !important;
-                min-width: 50px !important;
+
+        /* Monitoring Cards Section */
+        .monitoring-section {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .monitoring-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .monitoring-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .due-count {
+            background: #c8102e;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .monitoring-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .monitoring-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s;
+        }
+
+        .monitoring-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .monitoring-card.overdue {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .monitoring-card.due-soon {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .monitoring-card .title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .monitoring-card .freq {
+            color: #4b5563;
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+        }
+
+        .monitoring-card .due-date {
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+
+        .monitoring-card .due-date.overdue {
+            color: #ef4444;
+        }
+
+        .monitoring-card .due-date.due-soon {
+            color: #f59e0b;
+        }
+
+        .monitoring-card .action {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #c8102e;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .monitoring-card .action:hover {
+            background: #a50d24;
+        }
+
+        @media (max-width: 768px) {
+            .monitoring-cards {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -139,8 +307,38 @@ include 'includes/header.php';
     <main class="dashboard-content">
         <h1>PPA Monitoring Dashboard</h1>
 
-        <!-- Calendar (only content now) -->
+        <!-- Calendar -->
         <div id="calendar"></div>
+
+        <!-- Monitoring Due Cards -->
+        <div class="monitoring-section">
+            <div class="monitoring-header">
+                <h2>Monitoring Due This Period</h2>
+                <?php if (!empty($dueActivities)): ?>
+                    <span class="due-count"><?= count($dueActivities) ?> due</span>
+                <?php endif; ?>
+            </div>
+
+            <?php if (empty($dueActivities)): ?>
+                <p style="color:#6b7280; text-align:center; font-style:italic;">
+                    All monitoring is up to date.
+                </p>
+            <?php else: ?>
+                <div class="monitoring-cards">
+                    <?php foreach ($dueActivities as $act): ?>
+                        <div class="monitoring-card <?= $act['overdue'] ? 'overdue' : ($act['days'] <= 30 ? 'due-soon' : '') ?>">
+                            <div class="title"><?= htmlspecialchars($act['name']) ?></div>
+                            <div class="freq">Frequency: <?= htmlspecialchars($act['freq']) ?></div>
+                            <div class="due-date <?= $act['overdue'] ? 'overdue' : ($act['days'] <= 30 ? 'due-soon' : '') ?>">
+                                <?= $act['overdue'] ? 'Overdue since ' : 'Due on ' ?>
+                                <?= date('M d, Y', strtotime($act['due'])) ?>
+                            </div>
+                            <a href="opmm/view_activity.php?id=<?= $act['id'] ?>" class="action">View Activity</a>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
     </main>
 
     <script>
