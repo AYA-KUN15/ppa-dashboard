@@ -103,8 +103,8 @@ try {
 }
 
 $nav_links = [
-    ['url' => '../index.php', 'label' => 'Home', 'active' => false],
-    ['url' => 'view.php?id=' . $project['program_id'], 'label' => 'Program', 'active' => false],
+    ['url' => 'index.php', 'label' => 'Home', 'active' => false],
+    ['url' => '/opmm/view.php?id=' . $project['program_id'], 'label' => 'Program', 'active' => false],
 ];
 ?>
 

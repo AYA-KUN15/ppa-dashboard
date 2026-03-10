@@ -1,12 +1,10 @@
 <?php
 // ../includes/header.php
 
-// Define once here – change if you ever move the project folder
-define('BASE_URL', '/opmm-dashboard/');
+define('BASE_URL', '/opmm-dashboard/');   // ← your project root path
 
-// Make sure version is defined (you can move this to config if preferred)
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '2.0 Beta');
+    define('APP_VERSION', '2.1 Beta');
 }
 ?>
 
@@ -23,21 +21,18 @@ if (!defined('APP_VERSION')) {
 
     <nav class="main-nav">
         <?php
-        // Each page can define $nav_links before including header.php
-        // Example structure: array of [url, label, active?]
-        if (!isset($nav_links)) {
-            $nav_links = []; // fallback
-        }
+        // Each page defines $nav_links before include
+        if (!isset($nav_links)) $nav_links = [];
 
         foreach ($nav_links as $link) {
-            // Make nav links absolute too (prevents same issue on subfolder pages)
-            $url = strpos($link['url'], 'http') === 0 ? $link['url'] : BASE_URL . ltrim($link['url'], '/');
+            // Make EVERY link absolute using BASE_URL
+            $url = BASE_URL . ltrim($link['url'], '/');
             $class = $link['active'] ? 'nav-button active' : 'nav-button';
             echo '<a href="' . htmlspecialchars($url) . '" class="' . $class . '">' 
                  . htmlspecialchars($link['label']) . '</a>';
         }
 
-        // Always show Logout – now using BASE_URL so it works everywhere
+        // Logout is always absolute
         echo '<a href="' . BASE_URL . 'logout.php" class="nav-button logout">Logout</a>';
         ?>
     </nav>

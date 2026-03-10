@@ -107,8 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
 }
 
 $nav_links = [
-    ['url' => '../index.php', 'label' => 'Home',    'active' => false],
-    ['url' => 'view_activity.php?id=' . $id, 'label' => 'Activity', 'active' => false],
+    ['url' => 'index.php',          'label' => 'Home',    'active' => false],
+    ['url' => '/opmm/view_activity.php?id=' . $id, 'label' => 'Activity', 'active' => false],
 ];
 
 ?>

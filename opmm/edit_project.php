@@ -93,8 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $nav_links = [
-    ['url' => '../index.php', 'label' => 'Home',    'active' => false],
-    ['url' => 'view.php?id=' . $program_id, 'label' => 'Program', 'active' => false],
+    ['url' => 'index.php', 'label' => 'Home',    'active' => false],
+    ['url' => '/opmm/view.php?id=' . $program_id, 'label' => 'Program', 'active' => false],
 ];
 ?>
 
