@@ -6,7 +6,7 @@ define('BASE_URL', '/opmm-dashboard/');
 
 // Make sure version is defined (you can move this to config if preferred)
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '1.0 Beta');
+    define('APP_VERSION', '2.0 Beta');
 }
 ?>
 
@@ -30,13 +30,15 @@ if (!defined('APP_VERSION')) {
         }
 
         foreach ($nav_links as $link) {
+            // Make nav links absolute too (prevents same issue on subfolder pages)
+            $url = strpos($link['url'], 'http') === 0 ? $link['url'] : BASE_URL . ltrim($link['url'], '/');
             $class = $link['active'] ? 'nav-button active' : 'nav-button';
-            echo '<a href="' . htmlspecialchars($link['url']) . '" class="' . $class . '">' 
+            echo '<a href="' . htmlspecialchars($url) . '" class="' . $class . '">' 
                  . htmlspecialchars($link['label']) . '</a>';
         }
 
-        // Always show Logout
-        echo '<a href="../logout.php" class="nav-button logout">Logout</a>';
+        // Always show Logout – now using BASE_URL so it works everywhere
+        echo '<a href="' . BASE_URL . 'logout.php" class="nav-button logout">Logout</a>';
         ?>
     </nav>
 </header>
