@@ -66,30 +66,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($stmt->rowCount() > 0) {
-                // 1. Reset the program itself to active
-                $resetProg = $pdo->prepare("
-                    UPDATE program_entries 
-                    SET status = 'active', updated_at = NOW() 
-                    WHERE id = ?
-                ");
-                $resetProg->execute([$id]);
-
-                // 2. Reset all projects under this program to active
-                $resetProjects = $pdo->prepare("
-                    UPDATE project_entries 
-                    SET status = 'active', updated_at = NOW() 
-                    WHERE program_id = ?
-                ");
-                $resetProjects->execute([$id]);
-
-                // 3. Reset all activities under those projects to active
-                $resetActivities = $pdo->prepare("
+                // Reset status cascade
+                $pdo->prepare("UPDATE program_entries SET status = 'active', updated_at = NOW() WHERE id = ?")->execute([$id]);
+                $pdo->prepare("UPDATE project_entries SET status = 'active', updated_at = NOW() WHERE program_id = ?")->execute([$id]);
+                $pdo->prepare("
                     UPDATE activity_entries a
                     INNER JOIN project_entries p ON a.project_id = p.id
                     SET a.status = 'active', a.updated_at = NOW()
                     WHERE p.program_id = ?
-                ");
-                $resetActivities->execute([$id]);
+                ")->execute([$id]);
 
                 header("Location: list.php?success=updated");
                 exit;
@@ -129,13 +114,11 @@ $nav_links = [
             font-weight: 500;
             transition: background 0.2s;
         }
-
         #save-btn:disabled {
             background: #d1d5db;
             color: #6b7280;
             cursor: not-allowed;
         }
-
         #save-btn:hover:not(:disabled) {
             background: #a50d24;
         }
@@ -263,7 +246,7 @@ $nav_links = [
     </div>
 
     <script>
-    // Hardcoded options (unchanged)
+    // Hardcoded options
     const typeOptions = [
         "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
         "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
@@ -291,16 +274,19 @@ $nav_links = [
     const sourceOptions = ["MDS", "STF", "Others"];
 
     function openModal(modalId) {
-        document.getElementById(modalId).classList.add('active');
-        document.body.classList.add('modal-open');
+    document.getElementById(modalId).classList.add('active');
+    document.body.classList.add('modal-open');
 
-        const type = modalId.replace('-modal', '');
-        if (type !== 'beneficiaries') {
-            setTimeout(() => loadModalCheckboxes(type), 0);
-        } else {
-            loadBeneficiaries();
-        }
+    const type = modalId.replace('-modal', '');
+    if (type !== 'beneficiaries') {
+        // Delay ensures hidden field has the latest value from previous save
+        setTimeout(() => {
+            loadModalCheckboxes(type);
+        }, 100);
+    } else {
+        loadBeneficiaries();
     }
+}
 
     function closeModal(modalId) {
         document.getElementById(modalId).classList.remove('active');
@@ -316,10 +302,16 @@ $nav_links = [
         const display = document.getElementById('selected-' + type);
 
         if (hidden) hidden.value = values.join(', ');
-        if (display) display.textContent = values.length > 0 ? values.join(', ') : '';
+        if (display) display.textContent = values.length > 0 ? values.join(', ') : 'None';
 
+        // Close modal first
         closeModal(type + '-modal');
-        checkFormChanges();
+
+        // Refresh ALL previews after modal is gone (small delay ensures DOM stability)
+        setTimeout(() => {
+            syncPreviews();
+            checkFormChanges();
+        }, 50);
     }
 
     function loadModalCheckboxes(type) {
@@ -373,13 +365,13 @@ $nav_links = [
             <input type="text" placeholder="e.g., Farmers, Students, PWDs" value="${type}" class="beneficiary-type" required style="flex: 2; min-width: 220px;">
             <input type="number" placeholder="Male" value="${male}" min="0" class="beneficiary-male" required style="flex: 1; max-width: 100px;">
             <input type="number" placeholder="Female" value="${female}" min="0" class="beneficiary-female" required style="flex: 1; max-width: 100px;">
-            <button type="button" onclick="this.closest('.beneficiary-row').remove(); saveBeneficiaries();" class="remove-btn">×</button>
+            <button type="button" onclick="this.closest('.beneficiary-row').remove(); saveBeneficiaries(false);" class="remove-btn">×</button>
         `;
 
         container.appendChild(row);
     }
 
-    function saveBeneficiaries() {
+    function saveBeneficiaries(closeAfter = true) {
         const rows = document.querySelectorAll('#beneficiary-rows .beneficiary-row');
         const data = [];
         rows.forEach(row => {
@@ -389,6 +381,7 @@ $nav_links = [
             const female = parseInt(inputs[2].value) || 0;
             if (type) data.push({ type, male, female });
         });
+
         const json = JSON.stringify(data);
         document.getElementById('beneficiaries-json').value = json;
 
@@ -400,9 +393,14 @@ $nav_links = [
         });
         summary = summary.trim().replace(/ \| $/, '');
         if (total > 0) summary += ` | Total: ${total}`;
-        document.getElementById('selected-beneficiaries').textContent = summary || '';
+        document.getElementById('selected-beneficiaries').textContent = summary || 'None';
 
+        syncPreviews();
         checkFormChanges();
+
+        if (closeAfter) {
+            closeModal('beneficiaries-modal');
+        }
     }
 
     function loadBeneficiaries() {
@@ -422,8 +420,40 @@ $nav_links = [
         } else {
             data.forEach(b => addBeneficiaryRow(b.type || '', b.male || 0, b.female || 0));
         }
+    }
 
-        saveBeneficiaries();
+    function syncPreviews() {
+        const fields = [
+            { h: 'type-hidden', d: 'selected-types' },
+            { h: 'sdg-hidden', d: 'selected-sdgs' },
+            { h: 'source-hidden', d: 'selected-source' }
+        ];
+
+        fields.forEach(f => {
+            const hidden = document.getElementById(f.h);
+            const display = document.getElementById(f.d);
+            if (hidden && display) {
+                const val = hidden.value.trim();
+                display.textContent = val || 'None';
+            }
+        });
+
+        const bHidden = document.getElementById('beneficiaries-json');
+        const bDisplay = document.getElementById('selected-beneficiaries');
+        if (bHidden && bDisplay) {
+            const json = bHidden.value.trim() || '[]';
+            let data = [];
+            try { data = JSON.parse(json); } catch (e) {}
+            let summary = '';
+            let total = 0;
+            data.forEach(b => {
+                summary += `${b.type}: ${b.male} male, ${b.female} female | `;
+                total += (b.male || 0) + (b.female || 0);
+            });
+            summary = summary.trim().replace(/ \| $/, '');
+            if (total > 0) summary += ` | Total: ${total}`;
+            bDisplay.textContent = summary || 'None';
+        }
     }
 
     let originalValues = {};
@@ -469,40 +499,6 @@ $nav_links = [
             beneficiaries_json: document.getElementById('beneficiaries-json').value.trim(),
             total_cost: document.querySelector('[name="total_cost"]').value.trim(),
             source_of_fund: document.getElementById('source-hidden').value.trim()
-        };
-
-        const syncPreviews = () => {
-            const fields = [
-                { h: 'type-hidden', d: 'selected-types' },
-                { h: 'sdg-hidden', d: 'selected-sdgs' },
-                { h: 'source-hidden', d: 'selected-source' }
-            ];
-
-            fields.forEach(f => {
-                const hidden = document.getElementById(f.h);
-                const display = document.getElementById(f.d);
-                if (hidden && display) {
-                    const val = hidden.value.trim();
-                    display.textContent = val || '';
-                }
-            });
-
-            const bHidden = document.getElementById('beneficiaries-json');
-            const bDisplay = document.getElementById('selected-beneficiaries');
-            if (bHidden && bDisplay) {
-                const json = bHidden.value.trim() || '[]';
-                let data = [];
-                try { data = JSON.parse(json); } catch (e) {}
-                let summary = '';
-                let total = 0;
-                data.forEach(b => {
-                    summary += `${b.type}: ${b.male} male, ${b.female} female | `;
-                    total += (b.male || 0) + (b.female || 0);
-                });
-                summary = summary.trim().replace(/ \| $/, '');
-                if (total > 0) summary += ` | Total: ${total}`;
-                bDisplay.textContent = summary || '';
-            }
         };
 
         syncPreviews();

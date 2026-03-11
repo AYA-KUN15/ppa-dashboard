@@ -35,7 +35,7 @@ $isSingleMonth = (date('Y-m', strtotime($parentStart)) === date('Y-m', strtotime
 
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, date('n', strtotime($parentStart)), $parentYear);
 
-// Get parent end month/day for Annually auto-fill
+// For Annually suggestion
 $parentEndMonth = date('F', strtotime($parentEnd));
 $parentEndDay   = date('j', strtotime($parentEnd));
 
@@ -67,13 +67,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Failed to save activity: ' . $e->getMessage();
         }
     } else {
-        $activity_name = trim($_POST['activity_name'] ?? '');
-        $type_agenda   = trim($_POST['type_agenda'] ?? '');
-        $sdg_goals     = trim($_POST['sdg_goals'] ?? '');
+        $activity_name        = trim($_POST['activity_name'] ?? '');
+        $type_agenda          = trim($_POST['type_agenda'] ?? '');
+        $sdg_goals            = trim($_POST['sdg_goals'] ?? '');
         $frequency_monitoring = trim($_POST['frequency_monitoring'] ?? '');
-        $offices       = trim($_POST['offices'] ?? '');
-        $programs      = trim($_POST['programs'] ?? '');
-        $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
+        $offices              = trim($_POST['offices'] ?? '');
+        $programs             = trim($_POST['programs'] ?? '');
+        $beneficiaries        = trim($_POST['beneficiaries'] ?? '[]');
 
         $start_month = $isSingleMonth ? $parentMonth : trim($_POST['start_month'] ?? '');
         $start_day   = (int)($_POST['start_day'] ?? 0);
@@ -88,36 +88,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!$isSingleMonth && (empty($start_month) || empty($end_month))) {
             $error = 'Please select start and end months.';
         } else {
-            // NEW: Calculate days in the SELECTED end month
-            $endMonthNum = date('n', strtotime("$end_month 1 $parentYear"));
-            $daysInEndMonth = cal_days_in_month(CAL_GREGORIAN, $endMonthNum, $parentYear);
+            // Validate days in selected months
+            $startMonthNum = date('n', strtotime("$start_month 1 $parentYear"));
+            $daysInStart   = cal_days_in_month(CAL_GREGORIAN, $startMonthNum, $parentYear);
 
-            if (!$isSingleMonth && ($end_day < 1 || $end_day > $daysInEndMonth)) {
-                $error = "End day must be between 1 and $daysInEndMonth for $end_month.";
+            $endMonthNum   = date('n', strtotime("$end_month 1 $parentYear"));
+            $daysInEnd     = cal_days_in_month(CAL_GREGORIAN, $endMonthNum, $parentYear);
+
+            if ($start_day < 1 || $start_day > $daysInStart) {
+                $error = "Start day must be between 1 and $daysInStart for $start_month.";
+            } elseif ($end_day < 1 || $end_day > $daysInEnd) {
+                $error = "End day must be between 1 and $daysInEnd for $end_month.";
             } elseif (!$isSingleMonth && $end_day < $start_day && $end_month === $start_month) {
                 $error = 'End day cannot be before start day in the same month.';
             } else {
                 $startDate = date('Y-m-d', strtotime("$start_month $start_day $parentYear"));
+                $endDate   = $isSingleMonth && $end_day === 0 
+                           ? $startDate 
+                           : date('Y-m-d', strtotime("$end_month $end_day $parentYear"));
 
-                if ($isSingleMonth && $end_day === 0) {
-                    $endDate = $startDate;
+                // Server-side: enforce activity cannot go beyond project
+                $projStart = new DateTime($parentStart);
+                $projEnd   = new DateTime($parentEnd);
+                $actStart  = new DateTime($startDate);
+                $actEnd    = new DateTime($endDate);
+
+                if ($actStart < $projStart || $actEnd > $projEnd) {
+                    $error = "Activity dates must be within the parent project period (" . 
+                             date('M d, Y', strtotime($parentStart)) . " – " . 
+                             date('M d, Y', strtotime($parentEnd)) . ").";
                 } else {
-                    $endDate = date('Y-m-d', strtotime("$end_month $end_day $parentYear"));
+                    $_SESSION['pending_activity'] = [
+                        'project_id'                  => $project_id,
+                        'activity_name'               => $activity_name,
+                        'implementation_start'        => $startDate,
+                        'implementation_end'          => $endDate,
+                        'type_of_extension_service_agenda' => $type_agenda,
+                        'sdg_goals'                   => $sdg_goals,
+                        'frequency_monitoring'        => $frequency_monitoring,
+                        'offices_involved'            => $offices,
+                        'programs_involved'           => $programs,
+                        'beneficiaries_json'          => $beneficiaries
+                    ];
+                    $show_confirmation = true;
                 }
-
-                $_SESSION['pending_activity'] = [
-                    'project_id' => $project_id,
-                    'activity_name' => $activity_name,
-                    'implementation_start' => $startDate,
-                    'implementation_end' => $endDate,
-                    'type_of_extension_service_agenda' => $type_agenda,
-                    'sdg_goals' => $sdg_goals,
-                    'frequency_monitoring' => $frequency_monitoring,
-                    'offices_involved' => $offices,
-                    'programs_involved' => $programs,
-                    'beneficiaries_json' => $beneficiaries
-                ];
-                $show_confirmation = true;
             }
         }
     }
@@ -151,9 +165,14 @@ $nav_links = [
             font-weight: 500;
             transition: background 0.2s;
         }
-
         #add-btn:hover {
             background: #a50d24;
+        }
+        .hint {
+            color: #6b7280;
+            font-size: 0.85rem;
+            margin-top: 4px;
+            display: block;
         }
     </style>
 </head>
@@ -234,6 +253,7 @@ $nav_links = [
                     <option value="Semi-Annually" <?= ($_POST['frequency_monitoring'] ?? '') === 'Semi-Annually' ? 'selected' : '' ?>>Semi-Annually</option>
                     <option value="Annually"   <?= ($_POST['frequency_monitoring'] ?? '') === 'Annually'   ? 'selected' : '' ?>>Annually</option>
                 </select>
+                <small class="hint" id="freq-hint"></small>
 
                 <label>Offices Involved *</label>
                 <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
@@ -295,7 +315,7 @@ $nav_links = [
                             <input type="number" name="end_day" id="end_day" min="1" max="<?= $daysInMonth ?>" 
                                    placeholder="Day (optional)" value="<?= htmlspecialchars($_POST['end_day'] ?? '') ?>" 
                                    style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-                            <small style="color: #6b7280; font-size: 0.85rem;">(leave blank to use same day as start)</small>
+                            <small class="hint">(leave blank to use same day as start)</small>
                         <?php else: ?>
                             <select name="end_month" id="end_month" required style="flex: 1; min-width: 140px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
                                 <option value="">Month</option>
@@ -316,6 +336,7 @@ $nav_links = [
                                    style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
                         <?php endif; ?>
                     </div>
+                    <small class="hint" id="duration-hint">Activity must be within project period: <?= date('M d, Y', strtotime($parentStart)) ?> – <?= date('M d, Y', strtotime($parentEnd)) ?></small>
                 </div>
 
                 <button type="submit" id="add-btn"><b>Review & Add</b></button>
@@ -323,7 +344,7 @@ $nav_links = [
         </div>
     </main>
 
-    <!-- Modals (unchanged from your version) -->
+    <!-- Modals for Type, SDG, Offices, Programs -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
@@ -351,7 +372,6 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- SDG Modal -->
     <div id="sdg-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
@@ -379,7 +399,6 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Offices Modal -->
     <div id="offices-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('offices-modal')">×</span>
@@ -407,7 +426,6 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Programs Modal -->
     <div id="programs-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('programs-modal')">×</span>
@@ -594,139 +612,54 @@ $nav_links = [
         }
     }
 
-    // Frequency + Duration restrictions (updated for Annually using parent end date)
-    function updateDurationFields() {
-        const freqSelect = document.querySelector('#frequency_monitoring');
-        if (!freqSelect) return;
+    function updateHints() {
+        const freq = document.querySelector('#frequency_monitoring')?.value.trim().toLowerCase() || '';
+        const hintEl = document.getElementById('freq-hint');
 
-        const freq = freqSelect.value.trim().toLowerCase();
-
-        const startMonthSelect = document.querySelector('#start_month');
-        const startDayInput    = document.querySelector('#start_day');
-        const endMonthSelect   = document.querySelector('#end_month');
-        const endDayInput      = document.querySelector('#end_day');
-
-        // Reset restrictions
-        if (endMonthSelect) {
-            endMonthSelect.disabled = false;
-            Array.from(endMonthSelect.options).forEach(opt => {
-                if (opt.value) {
-                    opt.disabled = false;
-                    opt.hidden = false;
-                }
-            });
-        }
-        if (endDayInput)   endDayInput.disabled = false;
-        if (startDayInput) startDayInput.disabled = false;
-
-        if (!startMonthSelect || !endMonthSelect) return;
-
-        const monthNames = ["January","February","March","April","May","June",
-                            "July","August","September","October","November","December"];
-        const getMonthIndex = name => monthNames.indexOf(name);
-
-        // Helper: last day of a month
-        function getLastDayOfMonth(monthName) {
-            const year = new Date().getFullYear();
-            const monthNum = getMonthIndex(monthName) + 1;
-            return new Date(year, monthNum, 0).getDate();
+        if (hintEl) {
+            let text = '';
+            if (freq === 'monthly')    text = 'Monitored every month';
+            if (freq === 'quarterly')  text = 'Monitored every 3 months';
+            if (freq === 'semi-annually') text = 'Monitored every 6 months';
+            if (freq === 'annually')   text = 'Monitored once per year (suggested end: project end date)';
+            hintEl.textContent = text;
         }
 
-        // Helper: reset end day to valid value
-        function resetEndDay() {
-            if (!endDayInput || !endMonthSelect.value) return;
-            const lastDay = getLastDayOfMonth(endMonthSelect.value);
-            const current = parseInt(endDayInput.value) || 1;
-            endDayInput.value = Math.min(current, lastDay);
-        }
-
-        if (freq === 'monthly') {
-            if (endMonthSelect) {
-                endMonthSelect.disabled = true;
-                if (startMonthSelect.value) {
-                    endMonthSelect.value = startMonthSelect.value;
-                }
+        // Auto-suggest end date for Annually (but user can change it)
+        const endMonth = document.querySelector('#end_month');
+        const endDay   = document.querySelector('#end_day');
+        if (freq === 'annually' && endMonth && endDay) {
+            if (!endMonth.value) {
+                endMonth.value = "<?= htmlspecialchars($parentEndMonth) ?>";
             }
-            if (endDayInput)    endDayInput.disabled = true;
-
-            if (startMonthSelect.value && startDayInput?.value) {
-                const lastDay = getLastDayOfMonth(startMonthSelect.value);
-                endDayInput.value = lastDay;
+            if (!endDay.value) {
+                endDay.value = "<?= htmlspecialchars($parentEndDay) ?>";
             }
-        } 
-        else if (freq === 'annually') {
-            // Use parent's end month/day
-            if (endMonthSelect) {
-                endMonthSelect.disabled = true;
-                endMonthSelect.value = "<?= htmlspecialchars($parentEndMonth) ?>";
-            }
-            if (endDayInput) {
-                endDayInput.disabled = true;
-                endDayInput.value = "<?= htmlspecialchars($parentEndDay) ?>";
-            }
-        } 
-        else if (freq === 'quarterly' || freq === 'semi-annually') {
-            const startMonthName = startMonthSelect.value;
-            if (!startMonthName) return;
-
-            const startIdx = getMonthIndex(startMonthName);
-            const range = freq === 'quarterly' ? 3 : 6;
-
-            Array.from(endMonthSelect.options).forEach(opt => {
-                if (!opt.value) return;
-                const optIdx = getMonthIndex(opt.value);
-                if (optIdx >= startIdx && optIdx < startIdx + range) {
-                    opt.disabled = false;
-                    opt.hidden = false;
-                } else {
-                    opt.disabled = true;
-                    opt.hidden = true;
-                }
-            });
-
-            if (endMonthSelect.value && endMonthSelect.options[endMonthSelect.selectedIndex].disabled) {
-                endMonthSelect.value = startMonthName;
-            }
-
-            resetEndDay();
         }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
         const freqSelect = document.querySelector('#frequency_monitoring');
         if (freqSelect) {
-            freqSelect.addEventListener('change', updateDurationFields);
+            freqSelect.addEventListener('change', updateHints);
+            updateHints(); // initial call
         }
 
-        const startMonth = document.querySelector('#start_month');
-        if (startMonth) {
-            startMonth.addEventListener('change', updateDurationFields);
-        }
-
-        const startDay = document.querySelector('#start_day');
-        if (startDay) {
-            startDay.addEventListener('input', updateDurationFields);
-        }
-
+        // Dynamic max day validation when end month changes
         const endMonth = document.querySelector('#end_month');
-        if (endMonth) {
-            endMonth.addEventListener('change', updateDurationFields);
-        }
-
-        // NEW: Dynamic max for end_day based on selected end_month
+        const endDay   = document.querySelector('#end_day');
         if (endMonth && endDay) {
             endMonth.addEventListener('change', () => {
-                const month = endMonth.value;
-                if (!month) return;
-                const year = new Date().getFullYear();
-                const monthNum = new Date(`${month} 1, ${year}`).getMonth() + 1;
-                const lastDay = new Date(year, monthNum, 0).getDate();
+                if (!endMonth.value) return;
+                const date = new Date(endMonth.value + " 1, <?= $parentYear ?>");
+                const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
                 endDay.max = lastDay;
-                if (endDay.value > lastDay) endDay.value = lastDay;
+                if (parseInt(endDay.value) > lastDay) {
+                    endDay.value = lastDay;
+                }
             });
         }
 
-        updateDurationFields();
         syncPreviews();
         setTimeout(syncPreviews, 100);
     });

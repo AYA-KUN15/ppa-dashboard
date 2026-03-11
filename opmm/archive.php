@@ -127,7 +127,7 @@ $nav_links = [
                         <div class="quarter-item">
                             <!-- Main card button goes to VIEW page -->
                             <button class="quarter-btn completed-project"
-                                    onclick="window.location.href='../view.php?mode=program&id=<?= $program['id'] ?>'">
+                                    onclick="window.location.href='../opmm/view.php?mode=program&id=<?= $program['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
                                     M&E Phase
@@ -136,7 +136,7 @@ $nav_links = [
 
                             <!-- Pencil icon goes to EDIT page (to allow reactivation/changes) -->
                             <button class="action-icon edit-icon-btn"
-                                    onclick="window.location.href='../edit.php?mode=program&id=<?= $program['id'] ?>'"
+                                    onclick="window.location.href='../opmm/edit.php?mode=program&id=<?= $program['id'] ?>'"
                                     title="Edit program">
                                 <span class="material-icons">edit</span>
                             </button>
