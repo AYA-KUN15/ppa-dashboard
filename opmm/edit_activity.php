@@ -51,6 +51,42 @@ $isSingleMonth = (date('Y-m', strtotime($parentStart)) === date('Y-m', strtotime
 
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, date('n', strtotime($parentStart)), $parentYear);
 
+// Hardcoded full lists (same as add_activity.php)
+$fullTypeOptions = [
+    "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
+    "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
+    "Environment and Natural resources Conservation, Protection and Rehabilitation Program",
+    "Smart Analytics and Engineering Innovation",
+    "Adopt-a Municipality/Barangay/School/Social Development Thru BIDANI Implementation",
+    "Community Outreach",
+    "Technical-Vocational Education and Training (TVET) Program",
+    "Technology Transfer and Adoption/Utilization Program",
+    "Technical Assistance and Advisory Services Program",
+    "Parents' Empowerment through Social Development (PESODEV)",
+    "Gender and Development",
+    "Disaster Risk Reduction and Management and Disaster Preparedness and Response/Climate Change Adaptation (DRMM and DPR/CCA)"
+];
+
+$fullSdgOptions = [
+    "No Poverty",
+    "Zero Hunger",
+    "Good Health and Well-Being",
+    "Quality Education",
+    "Gender Equality",
+    "Clean Water and Sanitation",
+    "Affordable and Clean Energy",
+    "Decent Work and Economic Growth",
+    "Industry, Innovation and Infrastructure",   // with comma - correct
+    "Reduced Inequalities",
+    "Sustainable Cities and Communities",
+    "Responsible Consumption and Production",
+    "Climate Action",
+    "Life Below Water",
+    "Life on Land",
+    "Peace, Justice and Strong Institutions",
+    "Partnerships for the Goals"
+];
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -100,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $offices, $programs, $beneficiaries, $id
             ]);
 
-            // After successful edit, force parent project back to 'active' (since edit implies it's now incomplete/active)
+            // After successful edit, force parent project back to 'active'
             $revertProj = $pdo->prepare("
                 UPDATE project_entries 
                 SET status = 'active', 
@@ -148,13 +184,11 @@ $nav_links = [
             font-weight: 500;
             transition: background 0.2s;
         }
-
         #save-btn:disabled {
             background: #d1d5db;
             color: #6b7280;
             cursor: not-allowed;
         }
-
         #save-btn:hover:not(:disabled) {
             background: #a50d24;
         }
@@ -279,25 +313,36 @@ $nav_links = [
         </form>
     </main>
 
-    <!-- Type Modal -->
+    <!-- Type Modal - STATIC + robust matching -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
             <h2>Select Type of Extension Service Agenda</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['type_of_extension_service_agenda']) {
-                    $types = explode(', ', $parent['type_of_extension_service_agenda']);
-                    foreach ($types as $t) {
-                        $t = trim($t);
-                        $checked = strpos($entry['type_of_extension_service_agenda'] ?? '', $t) !== false ? 'checked' : '';
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($t) . '
-                            <input type="checkbox" value="' . htmlspecialchars($t) . '" ' . $checked . '>
-                        </label>';
-                    }
+                $parentTypeStr = $parent['type_of_extension_service_agenda'] ?? '';
+                $norm1 = strtolower(str_replace(' ', '', $parentTypeStr));
+                $norm2 = strtolower(str_replace([',', ' '], '', $parentTypeStr));
+                $norm3 = strtolower(str_replace(',', '', str_replace(' ', '', $parentTypeStr)));
+
+                if (empty($parentTypeStr)) {
+                    echo '<p>No types selected in parent project.</p>';
                 } else {
-                    echo '<p>No types available from parent project.</p>';
+                    foreach ($fullTypeOptions as $opt) {
+                        $n1 = strtolower(str_replace(' ', '', $opt));
+                        $n2 = strtolower(str_replace([',', ' '], '', $opt));
+                        $n3 = strtolower(str_replace(',', '', str_replace(' ', '', $opt)));
+
+                        if (strpos($norm1, $n1) !== false ||
+                            strpos($norm2, $n2) !== false ||
+                            strpos($norm3, $n3) !== false) {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($opt) . '
+                                <input type="checkbox" value="' . htmlspecialchars($opt) . '">
+                            </label>';
+                        }
+                    }
                 }
                 ?>
             </div>
@@ -308,26 +353,36 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- SDG Modal - Only from parent project -->
+    <!-- SDG Modal - STATIC + robust matching -->
     <div id="sdg-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
             <h2>Select Sustainable Development Goals</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['sdg_goals']) {
-                    $parentSDGs = explode(', ', $parent['sdg_goals']);
-                    $currentSDGs = explode(', ', $entry['sdg_goals'] ?? '');
-                    foreach ($parentSDGs as $sdg) {
-                        $sdg = trim($sdg);
-                        $checked = in_array($sdg, $currentSDGs) ? 'checked' : '';
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($sdg) . '
-                            <input type="checkbox" value="' . htmlspecialchars($sdg) . '" ' . $checked . '>
-                        </label>';
-                    }
+                $parentSdgStr = $parent['sdg_goals'] ?? '';
+                $norm1 = strtolower(str_replace(' ', '', $parentSdgStr));
+                $norm2 = strtolower(str_replace([',', ' '], '', $parentSdgStr));
+                $norm3 = strtolower(str_replace(',', '', str_replace(' ', '', $parentSdgStr)));
+
+                if (empty($parentSdgStr)) {
+                    echo '<p>No SDGs selected in parent project.</p>';
                 } else {
-                    echo '<p>No SDGs available from parent project.</p>';
+                    foreach ($fullSdgOptions as $opt) {
+                        $n1 = strtolower(str_replace(' ', '', $opt));
+                        $n2 = strtolower(str_replace([',', ' '], '', $opt));
+                        $n3 = strtolower(str_replace(',', '', str_replace(' ', '', $opt)));
+
+                        if (strpos($norm1, $n1) !== false ||
+                            strpos($norm2, $n2) !== false ||
+                            strpos($norm3, $n3) !== false) {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($opt) . '
+                                <input type="checkbox" value="' . htmlspecialchars($opt) . '">
+                            </label>';
+                        }
+                    }
                 }
                 ?>
             </div>
@@ -338,7 +393,7 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Offices Modal -->
+    <!-- Offices Modal - STATIC -->
     <div id="offices-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('offices-modal')">×</span>
@@ -349,11 +404,13 @@ $nav_links = [
                     $offices = explode(', ', $parent['offices_involved']);
                     foreach ($offices as $o) {
                         $o = trim($o);
-                        $checked = strpos($entry['offices_involved'] ?? '', $o) !== false ? 'checked' : '';
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($o) . '
-                            <input type="checkbox" value="' . htmlspecialchars($o) . '" ' . $checked . '>
-                        </label>';
+                        if ($o !== '') {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($o) . '
+                                <input type="checkbox" value="' . htmlspecialchars($o) . '">
+                            </label>';
+                        }
                     }
                 } else {
                     echo '<p>No offices available from parent project.</p>';
@@ -367,7 +424,7 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Programs Modal -->
+    <!-- Programs Modal - STATIC -->
     <div id="programs-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('programs-modal')">×</span>
@@ -375,14 +432,16 @@ $nav_links = [
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
                 if ($parent['programs_involved']) {
-                    $progs = explode(', ', $parent['programs_involved']);
-                    foreach ($progs as $p) {
+                    $programs = explode(', ', $parent['programs_involved']);
+                    foreach ($programs as $p) {
                         $p = trim($p);
-                        $checked = strpos($entry['programs_involved'] ?? '', $p) !== false ? 'checked' : '';
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($p) . '
-                            <input type="checkbox" value="' . htmlspecialchars($p) . '" ' . $checked . '>
-                        </label>';
+                        if ($p !== '') {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($p) . '
+                                <input type="checkbox" value="' . htmlspecialchars($p) . '">
+                            </label>';
+                        }
                     }
                 } else {
                     echo '<p>No programs available from parent project.</p>';
@@ -419,6 +478,15 @@ $nav_links = [
     function openModal(modalId) {
         document.getElementById(modalId).classList.add('active');
         document.body.classList.add('modal-open');
+
+        const type = modalId.replace('-modal', '');
+        if (type !== 'beneficiaries') {
+            setTimeout(() => {
+                restoreCheckedState(type);
+            }, 100);
+        } else {
+            loadBeneficiaries();
+        }
     }
 
     function closeModal(modalId) {
@@ -434,12 +502,41 @@ $nav_links = [
         const hidden = document.getElementById(type + '-hidden');
         const display = document.getElementById('selected-' + type);
 
-        if (hidden) hidden.value = values.join(', ');
-        if (display) display.textContent = values.length > 0 ? values.join(', ') : 'None';
+        if (hidden) {
+            hidden.value = values.join(', ');
+        }
+
+        if (display) {
+            display.textContent = values.length > 0 ? values.join(', ') : 'None';
+        }
 
         closeModal(type + '-modal');
-        syncPreviews();
-        checkFormChanges();
+
+        setTimeout(() => {
+            syncPreviews();
+            checkFormChanges();
+        }, 50);
+    }
+
+    function restoreCheckedState(type) {
+        const modal = document.getElementById(type + '-modal');
+        const hidden = document.getElementById(type + '-hidden');
+        const currentRaw = hidden?.value?.trim() || '';
+
+        // Multiple normalization strategies
+        const norm1 = currentRaw.toLowerCase().replace(/\s+/g, '');
+        const norm2 = currentRaw.toLowerCase().replace(/[\s,]+/g, '');
+        const norm3 = currentRaw.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');
+
+        const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            const val = cb.value.trim();
+            const n1 = val.toLowerCase().replace(/\s+/g, '');
+            const n2 = val.toLowerCase().replace(/[\s,]+/g, '');
+            const n3 = val.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');
+
+            cb.checked = (norm1.includes(n1) || norm2.includes(n2) || norm3.includes(n3));
+        });
     }
 
     let beneficiariesData = [];
@@ -448,11 +545,9 @@ $nav_links = [
         const rowsDiv = document.getElementById('beneficiary-rows');
         rowsDiv.innerHTML = '';
 
-        // Use current form state (hidden input), not DB saved state
         const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
-
         let currentEntries = [];
-        try { currentEntries = JSON.parse(currentJson); } catch (e) { currentEntries = []; }
+        try { currentEntries = JSON.parse(currentJson); } catch (e) {}
 
         const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
         let parentEntries = [];
@@ -487,7 +582,6 @@ $nav_links = [
             row.innerHTML = `
                 <input type="checkbox" ${entry.selected ? 'checked' : ''} 
                        onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
-
                 <div style="flex: 1;">
                     <strong>${entry.type}</strong><br>
                     <span style="color:#6b7280;">
@@ -530,7 +624,6 @@ $nav_links = [
         loadBeneficiaries();
     }
 
-    // Central preview sync function
     function syncPreviews() {
         const pairs = [
             ['type-hidden', 'selected-types'],
@@ -548,7 +641,6 @@ $nav_links = [
             }
         });
 
-        // Beneficiaries preview
         const benHidden = document.getElementById('beneficiaries-hidden');
         const benDisplay = document.getElementById('selected-beneficiaries');
         if (benHidden && benDisplay) {
@@ -562,7 +654,6 @@ $nav_links = [
         }
     }
 
-    // Form change detection
     let originalValues = {};
 
     function checkFormChanges() {
@@ -592,7 +683,6 @@ $nav_links = [
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Store original values (including months)
         originalValues = {
             activity_name: document.querySelector('[name="activity_name"]').value.trim(),
             type_agenda: document.getElementById('type-hidden').value.trim(),
@@ -603,147 +693,133 @@ $nav_links = [
             beneficiaries: document.getElementById('beneficiaries-hidden').value.trim(),
             start_day: document.querySelector('[name="start_day"]').value.trim(),
             start_month: document.querySelector('[name="start_month"]')?.value.trim() || '',
-            end_day: document.querySelector('[name="end_day"]')?.value.trim() || '',
+            end_day: document.querySelector('[name="end_day"]').value.trim(),
             end_month: document.querySelector('[name="end_month"]')?.value.trim() || ''
         };
 
-        // Sync previews
         syncPreviews();
         setTimeout(syncPreviews, 100);
         setTimeout(syncPreviews, 500);
 
-        // Listen for all changes
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('input', checkFormChanges);
             el.addEventListener('change', checkFormChanges);
         });
+
+        checkFormChanges();
     });
 
-    // Duration + Frequency restrictions
-function updateDurationFields() {
-    const freqSelect = document.querySelector('select[name="frequency_monitoring"]');
-    if (!freqSelect) return;
+    // Duration + Frequency restrictions (unchanged from your original)
+    function updateDurationFields() {
+        const freqSelect = document.querySelector('select[name="frequency_monitoring"]');
+        if (!freqSelect) return;
 
-    const freq = freqSelect.value.trim().toLowerCase();
+        const freq = freqSelect.value.trim().toLowerCase();
 
-    const startMonthSelect = document.querySelector('select[name="start_month"]');
-    const startDayInput   = document.querySelector('input[name="start_day"]');
-    const endMonthSelect  = document.querySelector('select[name="end_month"]');
-    const endDayInput     = document.querySelector('input[name="end_day"]');
+        const startMonthSelect = document.querySelector('select[name="start_month"]');
+        const startDayInput   = document.querySelector('input[name="start_day"]');
+        const endMonthSelect  = document.querySelector('select[name="end_month"]');
+        const endDayInput     = document.querySelector('input[name="end_day"]');
 
-    // Reset all restrictions first
-    if (endMonthSelect) {
-        endMonthSelect.disabled = false;
-        Array.from(endMonthSelect.options).forEach(opt => {
-            opt.disabled = false;
-            opt.hidden = false;
-        });
-    }
-    if (endDayInput)   endDayInput.disabled = false;
-    if (startDayInput) startDayInput.disabled = false;
+        // Reset all restrictions first
+        if (endMonthSelect) {
+            endMonthSelect.disabled = false;
+            Array.from(endMonthSelect.options).forEach(opt => {
+                opt.disabled = false;
+                opt.hidden = false;
+            });
+        }
+        if (endDayInput)   endDayInput.disabled = false;
+        if (startDayInput) startDayInput.disabled = false;
 
-    if (!startMonthSelect || !endMonthSelect) return;
+        if (!startMonthSelect || !endMonthSelect) return;
 
-    const monthNames = ["January","February","March","April","May","June",
-                        "July","August","September","October","November","December"];
+        const monthNames = ["January","February","March","April","May","June",
+                            "July","August","September","October","November","December"];
 
-    const getMonthIndex = (monthName) => monthNames.indexOf(monthName);
+        const getMonthIndex = (monthName) => monthNames.indexOf(monthName);
 
-    // Helper: Set end day to last valid day of selected month
-    function setEndDayToLastValid() {
-        if (!endMonthSelect.value || !endDayInput) return;
-        const year = new Date().getFullYear(); // dummy year for calculation
-        const monthNum = getMonthIndex(endMonthSelect.value) + 1;
-        const lastDay = new Date(year, monthNum, 0).getDate();
-        endDayInput.value = Math.min(parseInt(startDayInput?.value || lastDay), lastDay);
-    }
-
-    if (freq === 'monthly') {
-        // Monthly: end = last day of start month → disable end fields
-        endMonthSelect.disabled = true;
-        endDayInput.disabled = true;
-
-        if (startMonthSelect.value && startDayInput) {
-            const startMonthIdx = getMonthIndex(startMonthSelect.value);
+        function setEndDayToLastValid() {
+            if (!endMonthSelect.value || !endDayInput) return;
             const year = new Date().getFullYear();
-            const daysInMonth = new Date(year, startMonthIdx + 1, 0).getDate();
+            const monthNum = getMonthIndex(endMonthSelect.value) + 1;
+            const lastDay = new Date(year, monthNum, 0).getDate();
+            endDayInput.value = Math.min(parseInt(startDayInput?.value || lastDay), lastDay);
+        }
 
-            // Auto-set end day when start day changes
-            startDayInput.addEventListener('input', () => {
+        if (freq === 'monthly') {
+            endMonthSelect.disabled = true;
+            endDayInput.disabled = true;
+
+            if (startMonthSelect.value && startDayInput) {
+                const startMonthIdx = getMonthIndex(startMonthSelect.value);
+                const year = new Date().getFullYear();
+                const daysInMonth = new Date(year, startMonthIdx + 1, 0).getDate();
+
+                startDayInput.addEventListener('input', () => {
+                    if (startDayInput.value) {
+                        endDayInput.value = daysInMonth;
+                    }
+                });
+
                 if (startDayInput.value) {
                     endDayInput.value = daysInMonth;
                 }
+            }
+        } 
+        else if (freq === 'annually') {
+            endMonthSelect.disabled = true;
+            endDayInput.disabled = true;
+
+            endMonthSelect.value = "December";
+            endDayInput.value = "31";
+        } 
+        else if (freq === 'quarterly' || freq === 'semi-annually') {
+            const startMonthName = startMonthSelect.value;
+            if (!startMonthName) return;
+
+            const startIdx = getMonthIndex(startMonthName);
+            const rangeMonths = freq === 'quarterly' ? 3 : 6;
+
+            Array.from(endMonthSelect.options).forEach(opt => {
+                if (!opt.value) return;
+                const optIdx = getMonthIndex(opt.value);
+                if (optIdx >= startIdx && optIdx < startIdx + rangeMonths) {
+                    opt.disabled = false;
+                    opt.hidden = false;
+                } else {
+                    opt.disabled = true;
+                    opt.hidden = true;
+                }
             });
 
-            // Trigger once
-            if (startDayInput.value) {
-                endDayInput.value = daysInMonth;
+            if (endMonthSelect.value && endMonthSelect.options[endMonthSelect.selectedIndex].disabled) {
+                endMonthSelect.value = startMonthName;
             }
+
+            endMonthSelect.addEventListener('change', setEndDayToLastValid);
+            setEndDayToLastValid();
         }
-    } 
-    else if (freq === 'annually') {
-        // Annually: end = Dec 31 of same year → disable end fields
-        endMonthSelect.disabled = true;
-        endDayInput.disabled = true;
+    }
 
-        endMonthSelect.value = "December";
-        endDayInput.value = "31";
-    } 
-    else if (freq === 'quarterly' || freq === 'semi-annually') {
-        // Limit end month range
-        const startMonthName = startMonthSelect.value;
-        if (!startMonthName) return;
-
-        const startIdx = getMonthIndex(startMonthName);
-        const rangeMonths = freq === 'quarterly' ? 3 : 6;
-
-        Array.from(endMonthSelect.options).forEach(opt => {
-            if (!opt.value) return; // skip placeholder
-            const optIdx = getMonthIndex(opt.value);
-            // Allow from start month up to start + range - 1
-            if (optIdx >= startIdx && optIdx < startIdx + rangeMonths) {
-                opt.disabled = false;
-                opt.hidden = false;
-            } else {
-                opt.disabled = true;
-                opt.hidden = true;
-            }
-        });
-
-        // If current end month is now invalid, reset to start month
-        if (endMonthSelect.value && endMonthSelect.options[endMonthSelect.selectedIndex].disabled) {
-            endMonthSelect.value = startMonthName;
+    document.addEventListener('DOMContentLoaded', function() {
+        const freqSelect = document.querySelector('select[name="frequency_monitoring"]');
+        if (freqSelect) {
+            freqSelect.addEventListener('change', updateDurationFields);
         }
 
-        // Re-validate end day when end month changes
-        endMonthSelect.addEventListener('change', setEndDayToLastValid);
-        setEndDayToLastValid(); // initial check
-    }
-    // Other frequencies (daily, weekly, etc.) → no restrictions
-}
+        updateDurationFields();
 
-// Attach listeners
-document.addEventListener('DOMContentLoaded', function() {
-    const freqSelect = document.querySelector('select[name="frequency_monitoring"]');
-    if (freqSelect) {
-        freqSelect.addEventListener('change', updateDurationFields);
-    }
+        const startMonth = document.querySelector('select[name="start_month"]');
+        if (startMonth) {
+            startMonth.addEventListener('change', updateDurationFields);
+        }
 
-    // Run once on load (important for edit page)
-    updateDurationFields();
-
-    // Re-run when start month changes (quarterly/semi)
-    const startMonth = document.querySelector('select[name="start_month"]');
-    if (startMonth) {
-        startMonth.addEventListener('change', updateDurationFields);
-    }
-
-    // For monthly/annually: re-validate end day when start day changes
-    const startDay = document.querySelector('input[name="start_day"]');
-    if (startDay) {
-        startDay.addEventListener('input', updateDurationFields);
-    }
-});
+        const startDay = document.querySelector('input[name="start_day"]');
+        if (startDay) {
+            startDay.addEventListener('input', updateDurationFields);
+        }
+    });
     </script>
 
 </body>

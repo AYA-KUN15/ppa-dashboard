@@ -42,38 +42,26 @@ try {
     $projListStmt->execute([$id]);
     $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // NEW: Improved completion logic
+    // Corrected completion logic:
     // Program is completed ONLY if:
     // - It has at least one project, AND
-    // - All projects are completed (no active projects left)
+    // - ALL projects are marked 'completed' (no active projects remain)
     $programStatus = 'active'; // default
 
     if (!empty($projectsList)) {
         $allProjectsCompleted = true;
         foreach ($projectsList as $proj) {
             if ($proj['status'] !== 'completed') {
-                // Check if project has any active activities
-                $actStmt = $pdo->prepare("
-                    SELECT COUNT(*) AS active_count
-                    FROM activity_entries 
-                    WHERE project_id = ? AND status = 'active'
-                ");
-                $actStmt->execute([$proj['id']]);
-                $activeCount = $actStmt->fetchColumn();
-
-                if ($activeCount > 0) {
-                    $allProjectsCompleted = false;
-                    break;
-                }
+                $allProjectsCompleted = false;
+                break;
             }
         }
 
-        // If there are projects AND all are completed → mark program completed
         if ($allProjectsCompleted) {
             $programStatus = 'completed';
         }
     }
-    // If zero projects → stay active (brand new program)
+    // If zero projects → remain 'active' (new program)
 
     // Auto-update program status if it changed
     if ($programStatus !== $program['status']) {

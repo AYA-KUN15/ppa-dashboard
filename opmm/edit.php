@@ -29,6 +29,33 @@ if (!$entry) {
     die("Program not found.");
 }
 
+// Hardcoded options (same as add.php)
+$typeOptions = [
+    "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
+    "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
+    "Environment and Natural resources Conservation, Protection and Rehabilitation Program",
+    "Smart Analytics and Engineering Innovation",
+    "Adopt-a Municipality/Barangay/School/Social Development Thru BIDANI Implementation",
+    "Community Outreach",
+    "Technical-Vocational Education and Training (TVET) Program",
+    "Technology Transfer and Adoption/Utilization Program",
+    "Technical Assistance and Advisory Services Program",
+    "Parents' Empowerment through Social Development (PESODEV)",
+    "Gender and Development",
+    "Disaster Risk Reduction and Management and Disaster Preparedness and Response/Climate Change Adaptation (DRMM and DPR/CCA)"
+];
+
+$sdgOptions = [
+    "No Poverty", "Zero Hunger", "Good Health and Well-Being", "Quality Education",
+    "Gender Equality", "Clean Water and Sanitation", "Affordable and Clean Energy",
+    "Decent Work and Economic Growth", "Industry, Innovation and Infrastructure",
+    "Reduced Inequalities", "Sustainable Cities and Communities",
+    "Responsible Consumption and Production", "Climate Action", "Life Below Water",
+    "Life on Land", "Peace, Justice and Strong Institutions", "Partnerships for the Goals"
+];
+
+$sourceOptions = ["MDS", "STF", "Others"];
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -66,7 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($stmt->rowCount() > 0) {
-                // Reset status cascade
                 $pdo->prepare("UPDATE program_entries SET status = 'active', updated_at = NOW() WHERE id = ?")->execute([$id]);
                 $pdo->prepare("UPDATE project_entries SET status = 'active', updated_at = NOW() WHERE program_id = ?")->execute([$id]);
                 $pdo->prepare("
@@ -183,12 +209,19 @@ $nav_links = [
         </form>
     </main>
 
-    <!-- Type Modal -->
+    <!-- Type Modal - STATIC checkboxes -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
             <h2>Select Type of Extension Service Agenda</h2>
-            <div id="type-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;"></div>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <?php foreach ($typeOptions as $opt): ?>
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        <?= htmlspecialchars($opt) ?>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php endforeach; ?>
+            </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('type')">Save</button>
                 <button onclick="closeModal('type-modal')">Cancel</button>
@@ -196,12 +229,19 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- SDG Modal -->
+    <!-- SDG Modal - STATIC checkboxes -->
     <div id="sdg-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
             <h2>Select Sustainable Development Goals</h2>
-            <div id="sdg-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;"></div>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <?php foreach ($sdgOptions as $opt): ?>
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        <?= htmlspecialchars($opt) ?>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php endforeach; ?>
+            </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('sdg')">Save</button>
                 <button onclick="closeModal('sdg-modal')">Cancel</button>
@@ -209,12 +249,19 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Source Modal -->
+    <!-- Source Modal - STATIC checkboxes -->
     <div id="source-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('source-modal')">×</span>
             <h2>Select Source of Fund</h2>
-            <div id="source-checkboxes" style="max-height: 400px; overflow-y: auto; padding: 12px;"></div>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <?php foreach ($sourceOptions as $opt): ?>
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                        <?= htmlspecialchars($opt) ?>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php endforeach; ?>
+            </div>
             <div class="modal-actions">
                 <button onclick="saveModalSelections('source')">Save</button>
                 <button onclick="closeModal('source-modal')">Cancel</button>
@@ -246,47 +293,19 @@ $nav_links = [
     </div>
 
     <script>
-    // Hardcoded options
-    const typeOptions = [
-        "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
-        "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
-        "Environment and Natural resources Conservation, Protection and Rehabilitation Program",
-        "Smart Analytics and Engineering Innovation",
-        "Adopt-a Municipality/Barangay/School/Social Development Thru BIDANI Implementation",
-        "Community Outreach",
-        "Technical-Vocational Education and Training (TVET) Program",
-        "Technology Transfer and Adoption/Utilization Program",
-        "Technical Assistance and Advisory Services Program",
-        "Parents' Empowerment through Social Development (PESODEV)",
-        "Gender and Development",
-        "Disaster Risk Reduction and Management and Disaster Preparedness and Response/Climate Change Adaptation (DRMM and DPR/CCA)"
-    ];
-
-    const sdgOptions = [
-        "No Poverty", "Zero Hunger", "Good Health and Well-Being", "Quality Education",
-        "Gender Equality", "Clean Water and Sanitation", "Affordable and Clean Energy",
-        "Decent Work and Economic Growth", "Industry, Innovation and Infrastructure",
-        "Reduced Inequalities", "Sustainable Cities and Communities",
-        "Responsible Consumption and Production", "Climate Action", "Life Below Water",
-        "Life on Land", "Peace, Justice and Strong Institutions", "Partnerships for the Goals"
-    ];
-
-    const sourceOptions = ["MDS", "STF", "Others"];
-
     function openModal(modalId) {
-    document.getElementById(modalId).classList.add('active');
-    document.body.classList.add('modal-open');
+        document.getElementById(modalId).classList.add('active');
+        document.body.classList.add('modal-open');
 
-    const type = modalId.replace('-modal', '');
-    if (type !== 'beneficiaries') {
-        // Delay ensures hidden field has the latest value from previous save
-        setTimeout(() => {
-            loadModalCheckboxes(type);
-        }, 100);
-    } else {
-        loadBeneficiaries();
+        const type = modalId.replace('-modal', '');
+        if (type !== 'beneficiaries') {
+            setTimeout(() => {
+                restoreCheckedState(type);
+            }, 100);
+        } else {
+            loadBeneficiaries();
+        }
     }
-}
 
     function closeModal(modalId) {
         document.getElementById(modalId).classList.remove('active');
@@ -301,53 +320,35 @@ $nav_links = [
         const hidden = document.getElementById(type + '-hidden');
         const display = document.getElementById('selected-' + type);
 
-        if (hidden) hidden.value = values.join(', ');
-        if (display) display.textContent = values.length > 0 ? values.join(', ') : 'None';
+        if (hidden) {
+            hidden.value = values.map(v => v.trim()).join(', ');
+        }
 
-        // Close modal first
+        if (display) {
+            display.textContent = values.length > 0 ? values.join(', ') : 'None';
+        }
+
         closeModal(type + '-modal');
 
-        // Refresh ALL previews after modal is gone (small delay ensures DOM stability)
         setTimeout(() => {
             syncPreviews();
             checkFormChanges();
         }, 50);
     }
 
-    function loadModalCheckboxes(type) {
-        const container = document.getElementById(type + '-checkboxes');
-        if (!container) return;
-
+    function restoreCheckedState(type) {
+        const modal = document.getElementById(type + '-modal');
         const hidden = document.getElementById(type + '-hidden');
         const currentRaw = hidden?.value?.trim() || '';
-        const currentValues = currentRaw 
-            ? currentRaw.split(',').map(v => v.trim()).filter(v => v)
-            : [];
 
-        let options = [];
-        if (type === 'type') options = typeOptions;
-        if (type === 'sdg') options = sdgOptions;
-        if (type === 'source') options = sourceOptions;
+        // Normalize saved value: remove all spaces around commas
+        let normalized = currentRaw.replace(/\s*,\s*/g, ',').toLowerCase();
 
-        container.innerHTML = '';
-
-        options.forEach(val => {
-            const label = document.createElement('label');
-            label.style.display = 'flex';
-            label.style.alignItems = 'center';
-            label.style.justifyContent = 'space-between';
-            label.style.cursor = 'pointer';
-            label.style.padding = '8px';
-            label.style.borderRadius = '6px';
-
-            const checked = currentValues.includes(val) ? 'checked' : '';
-
-            label.innerHTML = `
-                ${val}
-                <input type="checkbox" value="${val}" ${checked}>
-            `;
-
-            container.appendChild(label);
+        const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            // Normalize the option value in the same way
+            let valNormalized = cb.value.toLowerCase().replace(/\s*,\s*/g, ',');
+            cb.checked = normalized.includes(valNormalized);
         });
     }
 

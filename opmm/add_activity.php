@@ -39,6 +39,42 @@ $daysInMonth = cal_days_in_month(CAL_GREGORIAN, date('n', strtotime($parentStart
 $parentEndMonth = date('F', strtotime($parentEnd));
 $parentEndDay   = date('j', strtotime($parentEnd));
 
+// Hardcoded full lists (used only as reference/whitelist)
+$fullTypeOptions = [
+    "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
+    "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
+    "Environment and Natural resources Conservation, Protection and Rehabilitation Program",
+    "Smart Analytics and Engineering Innovation",
+    "Adopt-a Municipality/Barangay/School/Social Development Thru BIDANI Implementation",
+    "Community Outreach",
+    "Technical-Vocational Education and Training (TVET) Program",
+    "Technology Transfer and Adoption/Utilization Program",
+    "Technical Assistance and Advisory Services Program",
+    "Parents' Empowerment through Social Development (PESODEV)",
+    "Gender and Development",
+    "Disaster Risk Reduction and Management and Disaster Preparedness and Response/Climate Change Adaptation (DRMM and DPR/CCA)"
+];
+
+$fullSdgOptions = [
+    "No Poverty",
+    "Zero Hunger",
+    "Good Health and Well-Being",
+    "Quality Education",
+    "Gender Equality",
+    "Clean Water and Sanitation",
+    "Affordable and Clean Energy",
+    "Decent Work and Economic Growth",
+    "Industry, Innovation, and Infrastructure",
+    "Reduced Inequalities",
+    "Sustainable Cities and Communities",
+    "Responsible Consumption and Production",
+    "Climate Action",
+    "Life Below Water",
+    "Life on Land",
+    "Peace, Justice and Strong Institutions",
+    "Partnerships for the Goals"
+];
+
 $error = '';
 $show_confirmation = false;
 
@@ -344,24 +380,29 @@ $nav_links = [
         </div>
     </main>
 
-    <!-- Modals for Type, SDG, Offices, Programs -->
+    <!-- Type Modal -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
             <h2>Select Type of Extension Service Agenda</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['type_of_extension_service_agenda']) {
-                    $types = explode(', ', $parent['type_of_extension_service_agenda']);
-                    foreach ($types as $t) {
-                        $t = trim($t);
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($t) . '
-                            <input type="checkbox" value="' . htmlspecialchars($t) . '">
-                        </label>';
-                    }
+                $parentTypeStr = $parent['type_of_extension_service_agenda'] ?? '';
+                $normalizedParent = strtolower(str_replace(' ', '', $parentTypeStr)); // remove spaces for loose matching
+
+                if (empty($parentTypeStr)) {
+                    echo '<p>No types selected in parent project.</p>';
                 } else {
-                    echo '<p>No types available from parent project.</p>';
+                    foreach ($fullTypeOptions as $type) {
+                        $normalizedType = strtolower(str_replace(' ', '', $type));
+                        if (strpos($normalizedParent, $normalizedType) !== false) {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($type) . '
+                                <input type="checkbox" value="' . htmlspecialchars($type) . '">
+                            </label>';
+                        }
+                    }
                 }
                 ?>
             </div>
@@ -372,23 +413,29 @@ $nav_links = [
         </div>
     </div>
 
+    <!-- SDG Modal -->
     <div id="sdg-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
             <h2>Select Sustainable Development Goals</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['sdg_goals']) {
-                    $sdgs = explode(', ', $parent['sdg_goals']);
-                    foreach ($sdgs as $s) {
-                        $s = trim($s);
-                        echo '<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                            ' . htmlspecialchars($s) . '
-                            <input type="checkbox" value="' . htmlspecialchars($s) . '">
-                        </label>';
-                    }
+                $parentSdgStr = $parent['sdg_goals'] ?? '';
+                $normalizedParent = strtolower(str_replace(' ', '', $parentSdgStr)); // remove spaces for loose matching
+
+                if (empty($parentSdgStr)) {
+                    echo '<p>No SDGs selected in parent project.</p>';
                 } else {
-                    echo '<p>No SDGs available from parent project.</p>';
+                    foreach ($fullSdgOptions as $sdg) {
+                        $normalizedSdg = strtolower(str_replace(' ', '', $sdg));
+                        if (strpos($normalizedParent, $normalizedSdg) !== false) {
+                            echo '
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
+                                ' . htmlspecialchars($sdg) . '
+                                <input type="checkbox" value="' . htmlspecialchars($sdg) . '">
+                            </label>';
+                        }
+                    }
                 }
                 ?>
             </div>
@@ -399,6 +446,7 @@ $nav_links = [
         </div>
     </div>
 
+    <!-- Offices Modal -->
     <div id="offices-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('offices-modal')">×</span>
@@ -426,6 +474,7 @@ $nav_links = [
         </div>
     </div>
 
+    <!-- Programs Modal -->
     <div id="programs-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('programs-modal')">×</span>
@@ -625,7 +674,6 @@ $nav_links = [
             hintEl.textContent = text;
         }
 
-        // Auto-suggest end date for Annually (but user can change it)
         const endMonth = document.querySelector('#end_month');
         const endDay   = document.querySelector('#end_day');
         if (freq === 'annually' && endMonth && endDay) {
@@ -642,10 +690,9 @@ $nav_links = [
         const freqSelect = document.querySelector('#frequency_monitoring');
         if (freqSelect) {
             freqSelect.addEventListener('change', updateHints);
-            updateHints(); // initial call
+            updateHints();
         }
 
-        // Dynamic max day validation when end month changes
         const endMonth = document.querySelector('#end_month');
         const endDay   = document.querySelector('#end_day');
         if (endMonth && endDay) {

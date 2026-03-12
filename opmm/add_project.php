@@ -27,6 +27,42 @@ if (!$parent) {
     die("Parent program not found.");
 }
 
+// Hardcoded full lists (reference/whitelist)
+$fullTypeOptions = [
+    "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
+    "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
+    "Environment and Natural resources Conservation, Protection and Rehabilitation Program",
+    "Smart Analytics and Engineering Innovation",
+    "Adopt-a Municipality/Barangay/School/Social Development Thru BIDANI Implementation",
+    "Community Outreach",
+    "Technical-Vocational Education and Training (TVET) Program",
+    "Technology Transfer and Adoption/Utilization Program",
+    "Technical Assistance and Advisory Services Program",
+    "Parents' Empowerment through Social Development (PESODEV)",
+    "Gender and Development",
+    "Disaster Risk Reduction and Management and Disaster Preparedness and Response/Climate Change Adaptation (DRMM and DPR/CCA)"
+];
+
+$fullSdgOptions = [
+    "No Poverty",
+    "Zero Hunger",
+    "Good Health and Well-Being",
+    "Quality Education",
+    "Gender Equality",
+    "Clean Water and Sanitation",
+    "Affordable and Clean Energy",
+    "Decent Work and Economic Growth",
+    "Industry, Innovation, and Infrastructure",
+    "Reduced Inequalities",
+    "Sustainable Cities and Communities",
+    "Responsible Consumption and Production",
+    "Climate Action",
+    "Life Below Water",
+    "Life on Land",
+    "Peace, Justice and Strong Institutions",
+    "Partnerships for the Goals"
+];
+
 $error = '';
 $show_confirmation = false;
 
@@ -162,37 +198,31 @@ $nav_links = [
                 <label for="project_title">Project Title *</label>
                 <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($_POST['project_title'] ?? '') ?>" placeholder="Enter project title" required>
 
-                <!-- Type -->
                 <label>Type of Extension Service Agenda *</label>
                 <button type="button" onclick="openModal('type-modal')">Select Types</button>
                 <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($_POST['type_agenda'] ?? '') ?>">
 
-                <!-- SDG -->
                 <label>Sustainable Development Goals *</label>
                 <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
                 <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($_POST['sdg_goals'] ?? '') ?>">
 
-                <!-- Offices -->
                 <label>Offices Involved *</label>
                 <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
                 <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($_POST['offices'] ?? '') ?>">
 
-                <!-- Programs -->
                 <label>Programs Involved *</label>
                 <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
                 <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($_POST['programs'] ?? '') ?>">
 
-                <!-- Beneficiaries -->
                 <label>Beneficiaries *</label>
                 <button type="button" onclick="openBeneficiariesModal()">Select Beneficiaries</button>
                 <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
                 <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($_POST['beneficiaries'] ?? '[]') ?>">
 
-                <!-- Duration Range -->
                 <label>Implementation Duration *</label>
                 <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                     <input type="date" 
@@ -224,19 +254,23 @@ $nav_links = [
             <h2>Select Type of Extension Service Agenda</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['type_of_extension_service_agenda']) {
-                    $types = array_map('trim', explode(',', $parent['type_of_extension_service_agenda']));
-                    foreach ($types as $t) {
-                        if ($t !== '') {
+                $parentTypeStr = $parent['type_of_extension_service_agenda'] ?? '';
+                $normalizedParent = strtolower(str_replace(' ', '', $parentTypeStr)); // remove spaces for loose matching
+
+                if (empty($parentTypeStr)) {
+                    echo '<p>No types selected in parent program.</p>';
+                } else {
+                    foreach ($fullTypeOptions as $type) {
+                        $normalizedType = strtolower(str_replace(' ', '', $type));
+                        // Check if the full option (without spaces) is substring of parent string
+                        if (strpos($normalizedParent, $normalizedType) !== false) {
                             echo '
                             <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($t) . '
-                                <input type="checkbox" value="' . htmlspecialchars($t) . '">
+                                ' . htmlspecialchars($type) . '
+                                <input type="checkbox" value="' . htmlspecialchars($type) . '">
                             </label>';
                         }
                     }
-                } else {
-                    echo '<p>No types available from parent program.</p>';
                 }
                 ?>
             </div>
@@ -254,19 +288,22 @@ $nav_links = [
             <h2>Select Sustainable Development Goals</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['sdg_goals']) {
-                    $sdgs = array_map('trim', explode(',', $parent['sdg_goals']));
-                    foreach ($sdgs as $s) {
-                        if ($s !== '') {
+                $parentSdgStr = $parent['sdg_goals'] ?? '';
+                $normalizedParent = strtolower(str_replace(' ', '', $parentSdgStr)); // remove spaces for loose matching
+
+                if (empty($parentSdgStr)) {
+                    echo '<p>No SDGs selected in parent program.</p>';
+                } else {
+                    foreach ($fullSdgOptions as $sdg) {
+                        $normalizedSdg = strtolower(str_replace(' ', '', $sdg));
+                        if (strpos($normalizedParent, $normalizedSdg) !== false) {
                             echo '
                             <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($s) . '
-                                <input type="checkbox" value="' . htmlspecialchars($s) . '">
+                                ' . htmlspecialchars($sdg) . '
+                                <input type="checkbox" value="' . htmlspecialchars($sdg) . '">
                             </label>';
                         }
                     }
-                } else {
-                    echo '<p>No SDGs available from parent program.</p>';
                 }
                 ?>
             </div>
@@ -285,7 +322,7 @@ $nav_links = [
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
                 if ($parent['offices_involved']) {
-                    $offices = array_map('trim', explode(',', $parent['offices_involved']));
+                    $offices = array_map('trim', explode(', ', $parent['offices_involved']));
                     foreach ($offices as $o) {
                         if ($o !== '') {
                             echo '
@@ -315,7 +352,7 @@ $nav_links = [
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
                 if ($parent['programs_involved']) {
-                    $programs = array_map('trim', explode(',', $parent['programs_involved']));
+                    $programs = array_map('trim', explode(', ', $parent['programs_involved']));
                     foreach ($programs as $p) {
                         if ($p !== '') {
                             echo '
@@ -417,11 +454,7 @@ $nav_links = [
                 female: Number(e.female || 0)
             }));
         } catch (e) {
-            entries = parentJson.split(',').map(item => ({
-                type: item.trim(),
-                male: 0,
-                female: 0
-            })).filter(e => e.type !== '');
+            entries = [];
         }
 
         if (entries.length === 0) {
@@ -443,7 +476,6 @@ $nav_links = [
 
             row.innerHTML = `
                 <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
-
                 <div style="flex: 1;">
                     <strong>${entry.type}</strong><br>
                     <span style="color:#6b7280;">

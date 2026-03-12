@@ -811,3 +811,177 @@ body.modal-open {
     border-color: #c8102e;
     box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
 }
+
+/* ──────────────────────────────────────────────── */
+/* Add Program Page - Compact Horizontal Layout     */
+/* ──────────────────────────────────────────────── */
+
+/* Main form grid */
+.program-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+    max-width: 1400px;
+    margin: 0 auto 32px auto;
+}
+
+@media (min-width: 1200px) {
+    .program-form {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1600px) {
+    .program-form {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Form group - no extra margin */
+.program-form .form-group {
+    margin: 0;
+}
+
+/* Date + Frequency group */
+.date-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.date-group input[type="date"],
+.date-group select {
+    flex: 1;
+    min-width: 120px;
+    padding: 8px 10px;
+}
+
+/* Compact previews */
+.compact-preview {
+    min-height: 32px;
+    line-height: 1.3;
+    font-size: 0.9rem;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    margin-top: 4px;
+    background: #f9fafb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+}
+
+/* Hints */
+.hint {
+    color: #6b7280;
+    font-size: 0.85rem;
+    margin-top: 4px;
+    line-height: 1.3;
+}
+
+/* Confirmation box - horizontal & compact */
+.confirmation-box {
+    max-width: 1600px;              /* allow full horizontal expansion */
+    width: 100%;
+    margin: 16px auto 32px auto;    /* reduced top margin, keep bottom for separation */
+    padding: 16px;                  /* much tighter internal padding */
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Ensure the grid inside can breathe but not waste space */
+.confirmation-box .confirmation-grid {
+    gap: 8px;                       /* keep tight */
+}
+
+/* Individual items - minimal padding */
+.confirmation-box .confirm-item {
+    padding: 8px 10px;              /* reduced from 12px */
+    margin: 0;
+}
+
+/* Actions row - closer to content */
+.confirmation-box .confirm-actions {
+    margin-top: 12px;               /* reduced from 24px */
+}
+
+/* Override any inherited max-width from parent if needed */
+.dashboard-content .confirmation-box {
+    max-width: 100% !important;
+}
+
+.confirmation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.confirm-item {
+    background: #f8f9fa;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.92rem;
+    margin: 0;
+}
+
+.confirm-item strong {
+    display: block;
+    margin-bottom: 2px;
+    color: #1f2937;
+    font-size: 0.95rem;
+}
+
+.confirm-item p {
+    margin: 0;
+    line-height: 1.25;
+}
+
+.confirm-actions {
+    text-align: center;
+    margin-top: 12px;
+}
+
+.confirm-actions button,
+.confirm-actions .cancel-link {
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    margin: 0 8px;
+    border-radius: 4px;
+}
+
+.cancel-link {
+    background: #6b7280;
+    color: white;
+    text-decoration: none;
+    padding: 10px 24px;
+    border-radius: 4px;
+}
+
+/* Modal checkbox consistency (already good, just ensuring) */
+.modal-checkbox-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 10px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    min-height: 48px;
+}
+
+.modal-checkbox-label span {
+    flex: 1;
+    padding-right: 16px;
+    line-height: 1.4;
+    font-size: 0.95rem;
+}
+
+.modal-checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
