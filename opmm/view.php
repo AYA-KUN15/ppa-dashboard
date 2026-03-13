@@ -2,6 +2,7 @@
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
     header("Location: ../login.php");
     exit;
 }
@@ -21,7 +22,7 @@ try {
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, partner_agencies,
-               beneficiaries_json, source_of_fund, status
+               beneficiaries_json, source_of_fund, status, monitoring_frequency
         FROM program_entries
         WHERE id = ?
     ");
@@ -177,6 +178,9 @@ $nav_links = [
                     <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_start']))) ?> – 
                     <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_end']))) ?>
                 </p>
+                <p><strong>Frequency of Monitoring:</strong> 
+                    <?= htmlspecialchars($program['monitoring_frequency'] ?? 'Not specified') ?>
+                </p>
                 <p><strong>Type of Extension Service Agenda:</strong> <?= htmlspecialchars($program['type_of_extension_service_agenda'] ?? 'N/A') ?></p>
                 <p><strong>SDG Goals:</strong> <?= htmlspecialchars($program['sdg_goals'] ?? 'N/A') ?></p>
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($program['offices_involved'] ?? 'N/A') ?></p>
@@ -208,7 +212,7 @@ $nav_links = [
                 <p><strong>Status:</strong> 
                     <?php
                     if ($programStatus === 'completed') {
-                        echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
+                        echo '<span style="color: #10b981; font-weight: 600;">Completed (Ongoing Monitoring & Evaluation)</span>';
                     } else {
                         echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
                     }
