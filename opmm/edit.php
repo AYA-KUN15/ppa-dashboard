@@ -19,7 +19,7 @@ $stmt = $pdo->prepare("
     SELECT title, location, duration_start, duration_end,
            type_of_extension_service_agenda, sdg_goals, offices_involved,
            programs_involved, partner_agencies, beneficiaries_json,
-           total_cost, source_of_fund
+           total_cost, source_of_fund, monitoring_frequency
     FROM program_entries WHERE id = ?
 ");
 $stmt->execute([$id]);
@@ -71,10 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $beneficiaries_json = trim($_POST['beneficiaries_json'] ?? '[]');
     $total_cost = (float)($_POST['total_cost'] ?? 0);
     $source_fund = trim($_POST['source_of_fund'] ?? '');
+    $monitoring_frequency = trim($_POST['monitoring_frequency'] ?? '');
 
     if (empty($title) || empty($location) || empty($duration_start) || empty($duration_end) ||
         empty($type) || empty($sdg) || empty($offices) || empty($programs) ||
-        empty($partners) || $total_cost <= 0 || empty($source_fund)) {
+        empty($partners) || $total_cost <= 0 || empty($source_fund) || empty($monitoring_frequency)) {
         $error = 'Please fill all required fields.';
     } else {
         try {
@@ -83,13 +84,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 SET title = ?, location = ?, duration_start = ?, duration_end = ?,
                     type_of_extension_service_agenda = ?, sdg_goals = ?, offices_involved = ?,
                     programs_involved = ?, partner_agencies = ?, beneficiaries_json = ?,
-                    total_cost = ?, source_of_fund = ?, updated_at = NOW()
+                    total_cost = ?, source_of_fund = ?, monitoring_frequency = ?, updated_at = NOW()
                 WHERE id = ?
             ");
             $stmt->execute([
                 $title, $location, $duration_start, $duration_end,
                 $type, $sdg, $offices, $programs, $partners,
-                $beneficiaries_json, $total_cost, $source_fund, $id
+                $beneficiaries_json, $total_cost, $source_fund,
+                $monitoring_frequency, $id
             ]);
 
             if ($stmt->rowCount() > 0) {
@@ -129,142 +131,174 @@ $nav_links = [
     <title>Edit Program</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
-    <style>
-        #save-btn {
-            background: #c8102e;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background 0.2s;
-        }
-        #save-btn:disabled {
-            background: #d1d5db;
-            color: #6b7280;
-            cursor: not-allowed;
-        }
-        #save-btn:hover:not(:disabled) {
-            background: #a50d24;
-        }
-    </style>
 </head>
 <body>
 
-    <main class="dashboard-content">
+    <main class="dashboard-content add-program-page">
         <h1>Edit Program</h1>
 
         <?php if ($error): ?>
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php endif; ?>
 
-        <form method="POST" id="edit-form">
-            <label for="title">Title *</label>
-            <input type="text" id="title" name="title" value="<?= htmlspecialchars($entry['title'] ?? '') ?>" required>
-
-            <label for="location">Location *</label>
-            <input type="text" id="location" name="location" value="<?= htmlspecialchars($entry['location'] ?? '') ?>" required>
-
-            <label>Duration *</label>
-            <div style="display: flex; gap: 16px; align-items: center;">
-                <input type="date" name="duration_start" value="<?= htmlspecialchars($entry['duration_start'] ?? '') ?>" required>
-                <span>to</span>
-                <input type="date" name="duration_end" value="<?= htmlspecialchars($entry['duration_end'] ?? '') ?>" required>
+        <form method="POST" class="program-form" id="edit-form">
+            <div class="form-group">
+                <label for="title">Title *</label>
+                <input type="text" id="title" name="title" value="<?= htmlspecialchars($entry['title'] ?? '') ?>" required>
             </div>
 
-            <label>Type of Extension Service Agenda * (select all that apply)</label>
-            <button type="button" onclick="openModal('type-modal')">Select Types</button>
-            <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-            <input type="hidden" name="type_of_extension_service_agenda" id="type-hidden" value="<?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '') ?>">
+            <div class="form-group">
+                <label for="location">Location *</label>
+                <input type="text" id="location" name="location" value="<?= htmlspecialchars($entry['location'] ?? '') ?>" required>
+            </div>
 
-            <label>Sustainable Development Goals * (select all that apply)</label>
-            <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-            <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-            <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($entry['sdg_goals'] ?? '') ?>">
+            <div class="form-group full-span">
+                <label>Duration & Frequency of Monitoring *</label>
+                <div class="date-group">
+                    <input type="date" name="duration_start" value="<?= htmlspecialchars($entry['duration_start'] ?? '') ?>" required>
+                    <span>to</span>
+                    <input type="date" name="duration_end" value="<?= htmlspecialchars($entry['duration_end'] ?? '') ?>" required>
+                    <select name="monitoring_frequency" required>
+                        <option value="">Frequency</option>
+                        <option value="Monthly"    <?= ($entry['monitoring_frequency'] ?? '') === 'Monthly'    ? 'selected' : '' ?>>Monthly</option>
+                        <option value="Quarterly"  <?= ($entry['monitoring_frequency'] ?? '') === 'Quarterly'  ? 'selected' : '' ?>>Quarterly</option>
+                        <option value="Semi-Annually" <?= ($entry['monitoring_frequency'] ?? '') === 'Semi-Annually' ? 'selected' : '' ?>>Semi-Annually</option>
+                        <option value="Annually"   <?= ($entry['monitoring_frequency'] ?? '') === 'Annually'   ? 'selected' : '' ?>>Annually</option>
+                    </select>
+                </div>
+                <small class="hint">
+                    Frequency applies during monitoring & evaluation (typically last 2 years).
+                </small>
+            </div>
 
-            <label>Beneficiaries * (add types and counts)</label>
-            <button type="button" onclick="openModal('beneficiaries-modal')">Manage Beneficiaries</button>
-            <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-            <input type="hidden" name="beneficiaries_json" id="beneficiaries-json" value="<?= htmlspecialchars($entry['beneficiaries_json'] ?? '[]') ?>">
+            <div class="form-group">
+                <label>Type of Extension Service Agenda * (select all that apply)</label>
+                <button type="button" onclick="openModal('type-modal')">Select Types</button>
+                <div id="selected-types" class="compact-preview"></div>
+                <input type="hidden" name="type_of_extension_service_agenda" id="type-hidden" value="<?= htmlspecialchars($entry['type_of_extension_service_agenda'] ?? '') ?>">
+            </div>
 
-            <label for="offices_involved">Offices/Colleges/Organizations Involved *</label>
-            <input type="text" id="offices_involved" name="offices_involved" value="<?= htmlspecialchars($entry['offices_involved'] ?? '') ?>" required>
+            <div class="form-group">
+                <label>Sustainable Development Goals * (select all that apply)</label>
+                <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
+                <div id="selected-sdgs" class="compact-preview"></div>
+                <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($entry['sdg_goals'] ?? '') ?>">
+            </div>
 
-            <label for="programs_involved">Programs Involved *</label>
-            <input type="text" id="programs_involved" name="programs_involved" value="<?= htmlspecialchars($entry['programs_involved'] ?? '') ?>" required>
+            <div class="form-group full-span">
+                <label>Beneficiaries * (add types and counts)</label>
+                <button type="button" onclick="openModal('beneficiaries-modal')">Manage Beneficiaries</button>
+                <div id="selected-beneficiaries" class="compact-preview"></div>
+                <input type="hidden" name="beneficiaries_json" id="beneficiaries-json" value="<?= htmlspecialchars($entry['beneficiaries_json'] ?? '[]') ?>">
+            </div>
 
-            <label for="partner_agencies">Partner Agencies *</label>
-            <input type="text" id="partner_agencies" name="partner_agencies" value="<?= htmlspecialchars($entry['partner_agencies'] ?? '') ?>" required>
+            <div class="form-group">
+                <label for="offices_involved">Offices/Colleges/Organizations Involved *</label>
+                <input type="text" id="offices_involved" name="offices_involved" value="<?= htmlspecialchars($entry['offices_involved'] ?? '') ?>" required>
+            </div>
 
-            <label>Source of Fund * (select all that apply)</label>
-            <button type="button" onclick="openModal('source-modal')">Select Sources</button>
-            <div id="selected-source" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-            <input type="hidden" name="source_of_fund" id="source-hidden" value="<?= htmlspecialchars($entry['source_of_fund'] ?? '') ?>">
+            <div class="form-group">
+                <label for="programs_involved">Programs Involved *</label>
+                <input type="text" id="programs_involved" name="programs_involved" value="<?= htmlspecialchars($entry['programs_involved'] ?? '') ?>" required>
+            </div>
 
-            <label for="total_cost">Total Cost *</label>
-            <input type="number" id="total_cost" name="total_cost" step="0.01" min="0" value="<?= htmlspecialchars($entry['total_cost'] ?? '') ?>" required>
+            <div class="form-group">
+                <label for="partner_agencies">Partner Agencies *</label>
+                <input type="text" id="partner_agencies" name="partner_agencies" value="<?= htmlspecialchars($entry['partner_agencies'] ?? '') ?>" required>
+            </div>
 
-            <button type="submit" id="save-btn" disabled><b>Save Changes</b></button>
+            <div class="form-group">
+                <label>Source of Fund * (select all that apply)</label>
+                <button type="button" onclick="openModal('source-modal')">Select Sources</button>
+                <div id="selected-source" class="compact-preview"></div>
+                <input type="hidden" name="source_of_fund" id="source-hidden" value="<?= htmlspecialchars($entry['source_of_fund'] ?? '') ?>">
+            </div>
+
+            <div class="form-group">
+                <label for="total_cost">Total Cost *</label>
+                <input type="number" id="total_cost" name="total_cost" step="0.01" min="0" value="<?= htmlspecialchars($entry['total_cost'] ?? '') ?>" required>
+            </div>
+
+            <div class="full-span" style="text-align: center; margin-top: 16px;">
+                <button type="submit" id="save-btn" disabled>Save Changes</button>
+            </div>
         </form>
     </main>
 
-    <!-- Type Modal - STATIC checkboxes -->
+    <!-- Type Modal -->
     <div id="type-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('type-modal')">×</span>
             <h2>Select Type of Extension Service Agenda</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php foreach ($typeOptions as $opt): ?>
-                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                        <?= htmlspecialchars($opt) ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
                         <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
                     </label>
                 <?php endforeach; ?>
             </div>
             <div class="modal-actions">
-                <button onclick="saveModalSelections('type')">Save</button>
-                <button onclick="closeModal('type-modal')">Cancel</button>
+                <button onclick="saveModalSelections('type')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('type-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- SDG Modal - STATIC checkboxes -->
+    <!-- SDG Modal -->
     <div id="sdg-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
             <h2>Select Sustainable Development Goals</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php foreach ($sdgOptions as $opt): ?>
-                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                        <?= htmlspecialchars($opt) ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
                         <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
                     </label>
                 <?php endforeach; ?>
             </div>
             <div class="modal-actions">
-                <button onclick="saveModalSelections('sdg')">Save</button>
-                <button onclick="closeModal('sdg-modal')">Cancel</button>
+                <button onclick="saveModalSelections('sdg')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('sdg-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Source Modal - STATIC checkboxes -->
+    <!-- Source Modal -->
     <div id="source-modal" class="modal-overlay">
         <div class="modal-box">
             <span class="close-modal" onclick="closeModal('source-modal')">×</span>
             <h2>Select Source of Fund</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php foreach ($sourceOptions as $opt): ?>
-                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                        <?= htmlspecialchars($opt) ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
                         <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
                     </label>
                 <?php endforeach; ?>
             </div>
             <div class="modal-actions">
-                <button onclick="saveModalSelections('source')">Save</button>
-                <button onclick="closeModal('source-modal')">Cancel</button>
+                <button onclick="saveModalSelections('source')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('source-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -274,18 +308,18 @@ $nav_links = [
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
             <h2>Manage Beneficiaries</h2>
-            <div id="beneficiary-rows" style="margin-bottom: 20px;"></div>
+            <div id="beneficiary-rows" style="margin-bottom: 16px;"></div>
             <button type="button" onclick="addBeneficiaryRow()"
-                    style="margin-bottom: 16px; padding: 12px 20px; background: #c8102e; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    style="margin-bottom: 12px; padding: 10px 16px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer;">
                 + Add Beneficiary Type
             </button>
-            <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+            <div class="modal-actions" style="margin-top: 12px; display: flex; gap: 12px; justify-content: flex-end;">
                 <button onclick="saveBeneficiaries()"
-                        style="padding: 12px 24px; background: #c8102e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
                     Save
                 </button>
                 <button onclick="closeModal('beneficiaries-modal')"
-                        style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
                     Cancel
                 </button>
             </div>
@@ -341,12 +375,10 @@ $nav_links = [
         const hidden = document.getElementById(type + '-hidden');
         const currentRaw = hidden?.value?.trim() || '';
 
-        // Normalize saved value: remove all spaces around commas
         let normalized = currentRaw.replace(/\s*,\s*/g, ',').toLowerCase();
 
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
         checkboxes.forEach(cb => {
-            // Normalize the option value in the same way
             let valNormalized = cb.value.toLowerCase().replace(/\s*,\s*/g, ',');
             cb.checked = normalized.includes(valNormalized);
         });
@@ -358,14 +390,14 @@ $nav_links = [
         row.className = 'beneficiary-row';
         row.style.display = 'flex';
         row.style.alignItems = 'center';
-        row.style.gap = '12px';
-        row.style.marginBottom = '16px';
+        row.style.gap = '10px';
+        row.style.marginBottom = '10px';
         row.style.flexWrap = 'wrap';
 
         row.innerHTML = `
-            <input type="text" placeholder="e.g., Farmers, Students, PWDs" value="${type}" class="beneficiary-type" required style="flex: 2; min-width: 220px;">
-            <input type="number" placeholder="Male" value="${male}" min="0" class="beneficiary-male" required style="flex: 1; max-width: 100px;">
-            <input type="number" placeholder="Female" value="${female}" min="0" class="beneficiary-female" required style="flex: 1; max-width: 100px;">
+            <input type="text" placeholder="e.g., Farmers, Students, PWDs" value="${type}" class="beneficiary-type" required style="flex: 2; min-width: 180px;">
+            <input type="number" placeholder="Male" value="${male}" min="0" class="beneficiary-male" required style="flex: 1; max-width: 80px;">
+            <input type="number" placeholder="Female" value="${female}" min="0" class="beneficiary-female" required style="flex: 1; max-width: 80px;">
             <button type="button" onclick="this.closest('.beneficiary-row').remove(); saveBeneficiaries(false);" class="remove-btn">×</button>
         `;
 
@@ -465,6 +497,7 @@ $nav_links = [
             location: document.querySelector('[name="location"]').value.trim(),
             duration_start: document.querySelector('[name="duration_start"]').value.trim(),
             duration_end: document.querySelector('[name="duration_end"]').value.trim(),
+            monitoring_frequency: document.querySelector('[name="monitoring_frequency"]').value.trim(),
             type_of_extension_service_agenda: document.getElementById('type-hidden')?.value.trim() || '',
             sdg_goals: document.getElementById('sdg-hidden')?.value.trim() || '',
             offices_involved: document.querySelector('[name="offices_involved"]').value.trim(),
@@ -483,7 +516,18 @@ $nav_links = [
             }
         }
 
-        document.getElementById('save-btn').disabled = !changed;
+        const saveBtn = document.getElementById('save-btn');
+        if (changed) {
+            saveBtn.disabled = false;
+            saveBtn.style.background = '#c8102e';
+            saveBtn.style.color = 'white';
+            saveBtn.style.cursor = 'pointer';
+        } else {
+            saveBtn.disabled = true;
+            saveBtn.style.background = '#d1d5db';
+            saveBtn.style.color = '#6b7280';
+            saveBtn.style.cursor = 'not-allowed';
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -492,6 +536,7 @@ $nav_links = [
             location: document.querySelector('[name="location"]').value.trim(),
             duration_start: document.querySelector('[name="duration_start"]').value.trim(),
             duration_end: document.querySelector('[name="duration_end"]').value.trim(),
+            monitoring_frequency: document.querySelector('[name="monitoring_frequency"]').value.trim(),
             type_of_extension_service_agenda: document.getElementById('type-hidden').value.trim(),
             sdg_goals: document.getElementById('sdg-hidden').value.trim(),
             offices_involved: document.querySelector('[name="offices_involved"]').value.trim(),
@@ -509,6 +554,13 @@ $nav_links = [
             el.addEventListener('input', () => { checkFormChanges(); syncPreviews(); });
             el.addEventListener('change', () => { checkFormChanges(); syncPreviews(); });
         });
+
+        // Initial check + force disabled/gray state on load
+        const saveBtn = document.getElementById('save-btn');
+        saveBtn.disabled = true;
+        saveBtn.style.background = '#d1d5db';
+        saveBtn.style.color = '#6b7280';
+        saveBtn.style.cursor = 'not-allowed';
 
         checkFormChanges();
     });

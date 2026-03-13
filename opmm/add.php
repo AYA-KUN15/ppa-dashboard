@@ -190,7 +190,6 @@ $nav_links = [
                 </div>
             </div>
         <?php else: ?>
-            <!-- The input form remains unchanged from previous version -->
             <form method="POST" class="program-form">
                 <div class="form-group">
                     <label for="title">Title *</label>
@@ -224,21 +223,21 @@ $nav_links = [
                 <div class="form-group">
                     <label>Type of Extension Service Agenda *</label>
                     <button type="button" onclick="openModal('type-modal')">Select Types</button>
-                    <div id="selected-types" class="compact-preview"></div>
+                    <div id="selected-types" class="compact-preview">None</div>
                     <input type="hidden" name="type_of_extension_service_agenda" id="type-hidden">
                 </div>
 
                 <div class="form-group">
                     <label>Sustainable Development Goals *</label>
                     <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-                    <div id="selected-sdgs" class="compact-preview"></div>
+                    <div id="selected-sdgs" class="compact-preview">None</div>
                     <input type="hidden" name="sdg_goals" id="sdg-hidden">
                 </div>
 
                 <div class="form-group full-span">
                     <label>Beneficiaries *</label>
                     <button type="button" onclick="openModal('beneficiaries-modal')">Manage Beneficiaries</button>
-                    <div id="selected-beneficiaries" class="compact-preview"></div>
+                    <div id="selected-beneficiaries" class="compact-preview">None</div>
                     <input type="hidden" name="beneficiaries_json" id="beneficiaries-json" value="[]">
                 </div>
 
@@ -260,7 +259,7 @@ $nav_links = [
                 <div class="form-group">
                     <label>Source of Fund *</label>
                     <button type="button" onclick="openModal('source-modal')">Select Sources</button>
-                    <div id="selected-source" class="compact-preview"></div>
+                    <div id="selected-source" class="compact-preview">None</div>
                     <input type="hidden" name="source_of_fund" id="source-hidden">
                 </div>
 
@@ -523,7 +522,7 @@ function saveModalSelections(type) {
     }
 
     if (display) {
-        display.textContent = values.length ? values.join(', ') : 'None selected';
+        display.textContent = values.length ? values.join(', ') : 'None';
     }
 
     closeModal(type + '-modal');
@@ -610,16 +609,22 @@ window.addEventListener('load', function() {
     const typeHidden = document.getElementById('type-hidden');
     if (typeHidden && typeHidden.value) {
         document.getElementById('selected-types').textContent = typeHidden.value;
+    } else {
+        document.getElementById('selected-types').textContent = 'None';
     }
 
     const sdgHidden = document.getElementById('sdg-hidden');
     if (sdgHidden && sdgHidden.value) {
         document.getElementById('selected-sdgs').textContent = sdgHidden.value;
+    } else {
+        document.getElementById('selected-sdgs').textContent = 'None';
     }
 
     const sourceHidden = document.getElementById('source-hidden');
     if (sourceHidden && sourceHidden.value) {
         document.getElementById('selected-source').textContent = sourceHidden.value;
+    } else {
+        document.getElementById('selected-source').textContent = 'None';
     }
 
     const json = document.getElementById('beneficiaries-json')?.value || '[]';
@@ -629,6 +634,7 @@ window.addEventListener('load', function() {
         saveBeneficiaries();
     } catch (e) {
         console.error('Invalid beneficiaries JSON on load:', e);
+        document.getElementById('selected-beneficiaries').textContent = 'None';
     }
 });
     </script>
