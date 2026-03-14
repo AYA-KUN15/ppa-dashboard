@@ -44,23 +44,12 @@ $fullTypeOptions = [
 ];
 
 $fullSdgOptions = [
-    "No Poverty",
-    "Zero Hunger",
-    "Good Health and Well-Being",
-    "Quality Education",
-    "Gender Equality",
-    "Clean Water and Sanitation",
-    "Affordable and Clean Energy",
-    "Decent Work and Economic Growth",
-    "Industry, Innovation, and Infrastructure",
-    "Reduced Inequalities",
-    "Sustainable Cities and Communities",
-    "Responsible Consumption and Production",
-    "Climate Action",
-    "Life Below Water",
-    "Life on Land",
-    "Peace, Justice and Strong Institutions",
-    "Partnerships for the Goals"
+    "No Poverty", "Zero Hunger", "Good Health and Well-Being", "Quality Education",
+    "Gender Equality", "Clean Water and Sanitation", "Affordable and Clean Energy",
+    "Decent Work and Economic Growth", "Industry, Innovation and Infrastructure",
+    "Reduced Inequalities", "Sustainable Cities and Communities",
+    "Responsible Consumption and Production", "Climate Action", "Life Below Water",
+    "Life on Land", "Peace, Justice and Strong Institutions", "Partnerships for the Goals"
 ];
 
 $error = '';
@@ -142,7 +131,7 @@ $nav_links = [
 </head>
 <body>
 
-    <main class="dashboard-content">
+    <main class="dashboard-content add-program-page">
         <h1>Add New Project</h1>
 
         <?php if ($error): ?>
@@ -150,101 +139,147 @@ $nav_links = [
         <?php endif; ?>
 
         <?php if ($show_confirmation): $d = $_SESSION['pending_project']; ?>
-            <div id="confirmation-box" class="confirmation-box">
+            <div class="confirmation-box">
                 <h2>Confirm Project Details</h2>
-                <p><strong>Project Title:</strong> <?= htmlspecialchars($d['project_title']) ?></p>
-                <p><strong>Implementation Start:</strong> <?= htmlspecialchars($d['implementation_start']) ?></p>
-                <p><strong>Implementation End:</strong> <?= htmlspecialchars($d['implementation_end']) ?></p>
-                <p><strong>Type of Extension Agenda:</strong> <?= htmlspecialchars($d['type_of_extension_service_agenda'] ?: '') ?></p>
-                <p><strong>SDG Goals:</strong> <?= htmlspecialchars($d['sdg_goals'] ?: '') ?></p>
-                <p><strong>Offices Involved:</strong> <?= htmlspecialchars($d['offices_involved'] ?: '') ?></p>
-                <p><strong>Programs Involved:</strong> <?= htmlspecialchars($d['programs_involved'] ?: '') ?></p>
-                <p><strong>Beneficiaries:</strong> 
-                    <?php
-                    $benefs = json_decode($d['beneficiaries_json'] ?? '[]', true);
-                    if (is_array($benefs) && !empty($benefs)) {
-                        $parts = [];
-                        $total = 0;
-                        foreach ($benefs as $b) {
-                            $type = htmlspecialchars($b['type'] ?? 'Unnamed');
-                            $m = (int)($b['male'] ?? 0);
-                            $f = (int)($b['female'] ?? 0);
-                            $line = $type;
-                            if ($m > 0 || $f > 0) $line .= ": $m male, $f female";
-                            $parts[] = $line;
-                            $total += $m + $f;
-                        }
-                        echo implode(' | ', $parts);
-                        if ($total > 0) echo " | Total: $total";
-                    } else {
-                        echo '';
-                    }
-                    ?>
-                </p>
 
-                <div style="margin-top: 24px;">
+                <div class="confirmation-grid">
+                    <div class="confirm-item">
+                        <strong>Project Title</strong>
+                        <p><?= htmlspecialchars($d['project_title']) ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Implementation Start</strong>
+                        <p><?= htmlspecialchars($d['implementation_start']) ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Implementation End</strong>
+                        <p><?= htmlspecialchars($d['implementation_end']) ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Type of Extension Service Agenda</strong>
+                        <p><?= htmlspecialchars($d['type_of_extension_service_agenda']) ?: 'None' ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>SDG Goals</strong>
+                        <p><?= htmlspecialchars($d['sdg_goals']) ?: 'None' ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Offices Involved</strong>
+                        <p><?= htmlspecialchars($d['offices_involved']) ?: 'None' ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Programs Involved</strong>
+                        <p><?= htmlspecialchars($d['programs_involved']) ?: 'None' ?></p>
+                    </div>
+
+                    <div class="confirm-item full-span">
+                        <strong>Beneficiaries</strong>
+                        <p>
+                            <?php
+                            $benefs = json_decode($d['beneficiaries_json'] ?? '[]', true);
+                            if (is_array($benefs) && !empty($benefs)) {
+                                $parts = [];
+                                $total = 0;
+                                foreach ($benefs as $b) {
+                                    $type = htmlspecialchars($b['type'] ?? 'Unnamed');
+                                    $m = (int)($b['male'] ?? 0);
+                                    $f = (int)($b['female'] ?? 0);
+                                    $line = $type;
+                                    if ($m > 0 || $f > 0) $line .= ": $m M, $f F";
+                                    $parts[] = $line;
+                                    $total += $m + $f;
+                                }
+                                echo implode(' | ', $parts);
+                                if ($total > 0) echo " | <strong>Total:</strong> $total";
+                            } else {
+                                echo 'None';
+                            }
+                            ?>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="confirm-actions">
                     <form method="POST" style="display:inline;">
                         <button type="submit" name="confirm">Confirm & Save</button>
                     </form>
-                    <button type="button" onclick="cancelConfirmation()" class="cancel-link">Cancel</button>
+                    <a href="add_project.php?program_id=<?= $program_id ?>" class="cancel-link">Cancel</a>
                 </div>
             </div>
-        <?php endif; ?>
-
-        <div id="add-form" style="<?= $show_confirmation ? 'display:none;' : '' ?>">
-            <form method="POST">
+        <?php else: ?>
+            <form method="POST" class="program-form">
                 <input type="hidden" name="program_id" value="<?= htmlspecialchars($program_id) ?>">
 
-                <label for="project_title">Project Title *</label>
-                <input type="text" id="project_title" name="project_title" value="<?= htmlspecialchars($_POST['project_title'] ?? '') ?>" placeholder="Enter project title" required>
+                <div class="form-group">
+    <label for="project_title">Project Title *</label>
+    <input type="text" id="project_title" name="project_title" required>
+</div>
 
-                <label>Type of Extension Service Agenda *</label>
-                <button type="button" onclick="openModal('type-modal')">Select Types</button>
-                <div id="selected-types" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="type_agenda" id="type-hidden" value="<?= htmlspecialchars($_POST['type_agenda'] ?? '') ?>">
-
-                <label>Sustainable Development Goals *</label>
-                <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-                <div id="selected-sdgs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="sdg_goals" id="sdg-hidden" value="<?= htmlspecialchars($_POST['sdg_goals'] ?? '') ?>">
-
-                <label>Offices Involved *</label>
-                <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-                <div id="selected-offices" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="offices" id="offices-hidden" value="<?= htmlspecialchars($_POST['offices'] ?? '') ?>">
-
-                <label>Programs Involved *</label>
-                <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-                <div id="selected-programs" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="programs" id="programs-hidden" value="<?= htmlspecialchars($_POST['programs'] ?? '') ?>">
-
-                <label>Beneficiaries *</label>
-                <button type="button" onclick="openBeneficiariesModal()">Select Beneficiaries</button>
-                <div id="selected-beneficiaries" style="margin: 8px 0; min-height: 40px; border: 1px solid #ccc; padding: 8px; border-radius: 4px;"></div>
-                <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="<?= htmlspecialchars($_POST['beneficiaries'] ?? '[]') ?>">
-
-                <label>Implementation Duration *</label>
-                <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
-                    <input type="date" 
-                           name="implementation_start" 
-                           value="<?= htmlspecialchars($_POST['implementation_start'] ?? '') ?>" 
-                           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
-                           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
-                           required 
-                           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
-                    <span>to</span>
-                    <input type="date" 
-                           name="implementation_end" 
-                           value="<?= htmlspecialchars($_POST['implementation_end'] ?? '') ?>" 
-                           min="<?= htmlspecialchars($parent['duration_start']) ?>" 
-                           max="<?= htmlspecialchars($parent['duration_end']) ?>" 
-                           required 
-                           style="flex: 1; min-width: 160px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" />
+                <div class="form-group">
+                    <label>Type of Extension Service Agenda *</label>
+                    <button type="button" onclick="openModal('type-modal')">Select Types</button>
+                    <div id="selected-types" class="compact-preview">None</div>
+                    <input type="hidden" name="type_agenda" id="type-hidden">
                 </div>
 
-                <button type="submit">Review & Add</button>
+                <div class="form-group">
+                    <label>Sustainable Development Goals *</label>
+                    <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
+                    <div id="selected-sdgs" class="compact-preview">None</div>
+                    <input type="hidden" name="sdg_goals" id="sdg-hidden">
+                </div>
+
+                <div class="form-group">
+                    <label>Offices Involved *</label>
+                    <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
+                    <div id="selected-offices" class="compact-preview">None</div>
+                    <input type="hidden" name="offices" id="offices-hidden">
+                </div>
+
+                <div class="form-group">
+                    <label>Programs Involved *</label>
+                    <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
+                    <div id="selected-programs" class="compact-preview">None</div>
+                    <input type="hidden" name="programs" id="programs-hidden">
+                </div>
+
+                <div class="form-group full-span">
+                    <label>Beneficiaries *</label>
+                    <button type="button" onclick="openModal('beneficiaries-modal')">Manage Beneficiaries</button>
+                    <div id="selected-beneficiaries" class="compact-preview">None</div>
+                    <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="[]">
+                </div>
+
+                <div class="form-group full-span">
+                    <label>Implementation Period * (within program duration)</label>
+                    <div class="date-group">
+                        <input type="date" name="implementation_start"
+                               min="<?= htmlspecialchars($parent['duration_start']) ?>"
+                               max="<?= htmlspecialchars($parent['duration_end']) ?>"
+                               required>
+                        <span>to</span>
+                        <input type="date" name="implementation_end"
+                               min="<?= htmlspecialchars($parent['duration_start']) ?>"
+                               max="<?= htmlspecialchars($parent['duration_end']) ?>"
+                               required>
+                    </div>
+                    <small class="hint">
+                        Must be within parent program: <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_start']))) ?> – 
+                        <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_end']))) ?>
+                    </small>
+                </div>
+
+                <div class="full-span" style="text-align: center; margin-top: 16px;">
+                    <button type="submit">Review & Add</button>
+                </div>
             </form>
-        </div>
+        <?php endif; ?>
     </main>
 
     <!-- Type Modal -->
@@ -254,65 +289,76 @@ $nav_links = [
             <h2>Select Type of Extension Service Agenda</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                $parentTypeStr = $parent['type_of_extension_service_agenda'] ?? '';
-                $normalizedParent = strtolower(str_replace(' ', '', $parentTypeStr)); // remove spaces for loose matching
-
-                if (empty($parentTypeStr)) {
-                    echo '<p>No types selected in parent program.</p>';
-                } else {
-                    foreach ($fullTypeOptions as $type) {
-                        $normalizedType = strtolower(str_replace(' ', '', $type));
-                        // Check if the full option (without spaces) is substring of parent string
-                        if (strpos($normalizedParent, $normalizedType) !== false) {
-                            echo '
-                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($type) . '
-                                <input type="checkbox" value="' . htmlspecialchars($type) . '">
-                            </label>';
-                        }
-                    }
-                }
+                $parentTypes = array_map('trim', explode(',', $parent['type_of_extension_service_agenda'] ?? ''));
+                foreach ($fullTypeOptions as $opt):
+                    if (in_array($opt, $parentTypes)):
                 ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php
+                    endif;
+                endforeach;
+                if (empty($parentTypes) || empty(array_intersect($fullTypeOptions, $parentTypes))):
+                ?>
+                    <p>No types available from parent program.</p>
+                <?php endif; ?>
             </div>
             <div class="modal-actions">
-                <button onclick="saveModalSelections('type')">Save</button>
-                <button onclick="closeModal('type-modal')">Cancel</button>
+                <button onclick="saveModalSelections('type')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('type-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
 
     <!-- SDG Modal -->
-    <div id="sdg-modal" class="modal-overlay">
-        <div class="modal-box">
-            <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
-            <h2>Select Sustainable Development Goals</h2>
-            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-                <?php
-                $parentSdgStr = $parent['sdg_goals'] ?? '';
-                $normalizedParent = strtolower(str_replace(' ', '', $parentSdgStr)); // remove spaces for loose matching
+<div id="sdg-modal" class="modal-overlay">
+    <div class="modal-box">
+        <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
+        <h2>Select Sustainable Development Goals</h2>
+        <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+            <?php
+            $parentSdgStr = $parent['sdg_goals'] ?? '';
+            $parentSdgsLower = strtolower($parentSdgStr);
 
-                if (empty($parentSdgStr)) {
-                    echo '<p>No SDGs selected in parent program.</p>';
-                } else {
-                    foreach ($fullSdgOptions as $sdg) {
-                        $normalizedSdg = strtolower(str_replace(' ', '', $sdg));
-                        if (strpos($normalizedParent, $normalizedSdg) !== false) {
-                            echo '
-                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($sdg) . '
-                                <input type="checkbox" value="' . htmlspecialchars($sdg) . '">
-                            </label>';
-                        }
-                    }
-                }
-                ?>
-            </div>
-            <div class="modal-actions">
-                <button onclick="saveModalSelections('sdg')">Save</button>
-                <button onclick="closeModal('sdg-modal')">Cancel</button>
-            </div>
+            $anyShown = false;
+            foreach ($fullSdgOptions as $opt):
+                // Check if the full goal name (with commas) appears in parent string
+                if (stripos($parentSdgStr, $opt) !== false):
+                    $anyShown = true;
+            ?>
+                <label class="modal-checkbox-label">
+                    <span><?= htmlspecialchars($opt) ?></span>
+                    <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                </label>
+            <?php
+                endif;
+            endforeach;
+
+            if (!$anyShown):
+            ?>
+                <p>No SDGs available from parent program.</p>
+            <?php endif; ?>
+        </div>
+        <div class="modal-actions">
+            <button onclick="saveModalSelections('sdg')" 
+                    style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                Save
+            </button>
+            <button onclick="closeModal('sdg-modal')" 
+                    style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                Cancel
+            </button>
         </div>
     </div>
+</div>
 
     <!-- Offices Modal -->
     <div id="offices-modal" class="modal-overlay">
@@ -321,25 +367,31 @@ $nav_links = [
             <h2>Select Offices Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['offices_involved']) {
-                    $offices = array_map('trim', explode(', ', $parent['offices_involved']));
-                    foreach ($offices as $o) {
-                        if ($o !== '') {
-                            echo '
-                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($o) . '
-                                <input type="checkbox" value="' . htmlspecialchars($o) . '">
-                            </label>';
-                        }
-                    }
-                } else {
-                    echo '<p>No offices available from parent program.</p>';
-                }
+                $parentOffices = array_map('trim', explode(',', $parent['offices_involved'] ?? ''));
+                foreach ($parentOffices as $opt):
+                    if ($opt):
                 ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php
+                    endif;
+                endforeach;
+                if (empty($parentOffices)):
+                ?>
+                    <p>No offices available from parent program.</p>
+                <?php endif; ?>
             </div>
             <div class="modal-actions">
-                <button onclick="saveModalSelections('offices')">Save</button>
-                <button onclick="closeModal('offices-modal')">Cancel</button>
+                <button onclick="saveModalSelections('offices')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('offices-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -351,25 +403,31 @@ $nav_links = [
             <h2>Select Programs Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['programs_involved']) {
-                    $programs = array_map('trim', explode(', ', $parent['programs_involved']));
-                    foreach ($programs as $p) {
-                        if ($p !== '') {
-                            echo '
-                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px; border-radius: 6px;">
-                                ' . htmlspecialchars($p) . '
-                                <input type="checkbox" value="' . htmlspecialchars($p) . '">
-                            </label>';
-                        }
-                    }
-                } else {
-                    echo '<p>No programs available from parent program.</p>';
-                }
+                $parentPrograms = array_map('trim', explode(',', $parent['programs_involved'] ?? ''));
+                foreach ($parentPrograms as $opt):
+                    if ($opt):
                 ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php
+                    endif;
+                endforeach;
+                if (empty($parentPrograms)):
+                ?>
+                    <p>No programs available from parent program.</p>
+                <?php endif; ?>
             </div>
             <div class="modal-actions">
-                <button onclick="saveModalSelections('programs')">Save</button>
-                <button onclick="closeModal('programs-modal')">Cancel</button>
+                <button onclick="saveModalSelections('programs')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('programs-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -378,15 +436,19 @@ $nav_links = [
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
-            <h2>Select Beneficiaries from Program</h2>
-            <div id="beneficiary-rows" style="margin-bottom: 20px;"></div>
-            <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+            <h2>Manage Beneficiaries</h2>
+            <div id="beneficiary-rows" style="margin-bottom: 16px;"></div>
+            <button type="button" onclick="addBeneficiaryRow()" 
+                    style="margin-bottom: 12px; padding: 10px 16px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                + Add Beneficiary Type
+            </button>
+            <div class="modal-actions" style="margin-top: 12px; display: flex; gap: 12px; justify-content: flex-end;">
                 <button onclick="saveBeneficiaries()" 
-                        style="padding: 12px 24px; background: #c8102e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                    Save Selected
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
                 </button>
                 <button onclick="closeModal('beneficiaries-modal')" 
-                        style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
                     Cancel
                 </button>
             </div>
@@ -394,131 +456,141 @@ $nav_links = [
     </div>
 
     <script>
-    function openModal(modalId) {
-        document.getElementById(modalId).classList.add('active');
-        document.body.classList.add('modal-open');
+function openModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+    document.body.classList.add('modal-open');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+    document.body.classList.remove('modal-open');
+}
+
+function saveModalSelections(type) {
+    const modal = document.getElementById(type + '-modal');
+    const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+    const values = Array.from(checkboxes).map(cb => cb.value.trim());
+
+    const hidden = document.getElementById(type + '-hidden');
+
+    let displayId = '';
+    if (type === 'type') displayId = 'selected-types';
+    if (type === 'sdg') displayId = 'selected-sdgs';
+    if (type === 'offices') displayId = 'selected-offices';
+    if (type === 'programs') displayId = 'selected-programs';
+
+    const display = document.getElementById(displayId);
+
+    if (hidden) {
+        hidden.value = values.join(', ');
     }
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).classList.remove('active');
-        document.body.classList.remove('modal-open');
+    if (display) {
+        display.textContent = values.length ? values.join(', ') : 'None';
     }
 
-    function cancelConfirmation() {
-        document.getElementById('confirmation-box').style.display = 'none';
-        document.getElementById('add-form').style.display = 'block';
-    }
+    closeModal(type + '-modal');
+}
 
-    function saveModalSelections(type) {
-        const modal = document.getElementById(type + '-modal');
-        const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
-        const values = Array.from(checkboxes).map(cb => cb.value.trim());
+function addBeneficiaryRow(type = '', male = 0, female = 0) {
+    const container = document.getElementById('beneficiary-rows');
+    const row = document.createElement('div');
+    row.className = 'beneficiary-row';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '10px';
+    row.style.marginBottom = '10px';
+    row.style.flexWrap = 'wrap';
 
+    row.innerHTML = `
+        <input type="text" 
+               placeholder="e.g., Farmers, Students, PWDs" 
+               value="${type}" 
+               class="beneficiary-type"
+               required
+               style="flex: 2; min-width: 180px;">
+
+        <input type="number" 
+               placeholder="Male" 
+               value="${male}" 
+               min="0" 
+               class="beneficiary-male"
+               required
+               style="flex: 1; max-width: 80px;">
+
+        <input type="number" 
+               placeholder="Female" 
+               value="${female}" 
+               min="0" 
+               class="beneficiary-female"
+               required
+               style="flex: 1; max-width: 80px;">
+
+        <button type="button" 
+                onclick="this.closest('.beneficiary-row').remove();"
+                style="padding: 6px 10px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+            ×
+        </button>
+    `;
+
+    container.appendChild(row);
+}
+
+function saveBeneficiaries() {
+    const rows = document.querySelectorAll('#beneficiary-rows .beneficiary-row');
+    const data = [];
+
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const type = inputs[0].value.trim();
+        const male = parseInt(inputs[1].value) || 0;
+        const female = parseInt(inputs[2].value) || 0;
+
+        if (type) {
+            data.push({ type, male, female });
+        }
+    });
+
+    const json = JSON.stringify(data);
+    document.getElementById('beneficiaries-hidden').value = json;
+
+    let summary = '';
+    let total = 0;
+
+    data.forEach(b => {
+        summary += `${b.type}: ${b.male} M, ${b.female} F | `;
+        total += b.male + b.female;
+    });
+
+    summary += total > 0 ? `Total: ${total}` : 'None';
+
+    document.getElementById('selected-beneficiaries').textContent = summary.trim();
+
+    closeModal('beneficiaries-modal');
+}
+
+window.addEventListener('load', function() {
+    ['type', 'sdg', 'offices', 'programs'].forEach(type => {
         const hidden = document.getElementById(type + '-hidden');
-
-        const displayMap = {
-            'type':         'selected-types',
-            'sdg':          'selected-sdgs',
-            'offices':      'selected-offices',
-            'programs':     'selected-programs',
-            'beneficiaries': 'selected-beneficiaries'
-        };
-        const displayId = displayMap[type];
-        const display = displayId ? document.getElementById(displayId) : null;
-
-        if (hidden) {
-            hidden.value = values.join(', ');
+        const display = document.getElementById('selected-' + type);
+        if (hidden && display) {
+            display.textContent = hidden.value.trim() ? hidden.value : 'None';
         }
+    });
 
-        if (display) {
-            display.textContent = values.length > 0 ? values.join(', ') : '';
+    const json = document.getElementById('beneficiaries-hidden')?.value || '[]';
+    try {
+        const data = JSON.parse(json);
+        if (data.length === 0) {
+            document.getElementById('selected-beneficiaries').textContent = 'None';
+        } else {
+            data.forEach(b => addBeneficiaryRow(b.type, b.male, b.female));
+            saveBeneficiaries(); // refresh preview
         }
-
-        closeModal(type + '-modal');
+    } catch (e) {
+        document.getElementById('selected-beneficiaries').textContent = 'None';
     }
-
-    let beneficiariesData = [];
-
-    function loadBeneficiaries() {
-        const rowsDiv = document.getElementById('beneficiary-rows');
-        rowsDiv.innerHTML = '';
-
-        const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
-        let entries = [];
-
-        try {
-            entries = JSON.parse(parentJson);
-            entries = entries.map(e => ({
-                type: e.type || 'Unnamed Type',
-                male: Number(e.male || 0),
-                female: Number(e.female || 0)
-            }));
-        } catch (e) {
-            entries = [];
-        }
-
-        if (entries.length === 0) {
-            rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in parent program.</p>';
-            return;
-        }
-
-        beneficiariesData = entries.map((e, i) => ({ ...e, index: i, selected: true }));
-
-        entries.forEach((entry, index) => {
-            const row = document.createElement('div');
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
-            row.style.gap = '16px';
-            row.style.marginBottom = '12px';
-            row.style.padding = '12px';
-            row.style.border = '1px solid #d1d5db';
-            row.style.borderRadius = '6px';
-
-            row.innerHTML = `
-                <input type="checkbox" checked onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
-                <div style="flex: 1;">
-                    <strong>${entry.type}</strong><br>
-                    <span style="color:#6b7280;">
-                        Male: ${entry.male} | Female: ${entry.female}
-                    </span>
-                </div>
-            `;
-
-            rowsDiv.appendChild(row);
-        });
-    }
-
-    function toggleBeneficiary(index, checked) {
-        if (beneficiariesData[index]) {
-            beneficiariesData[index].selected = checked;
-        }
-    }
-
-    function saveBeneficiaries() {
-        const selected = beneficiariesData.filter(b => b.selected).map(b => ({
-            type: b.type,
-            male: b.male,
-            female: b.female
-        }));
-
-        const hidden = document.getElementById('beneficiaries-hidden');
-        if (hidden) {
-            hidden.value = JSON.stringify(selected);
-        }
-
-        const preview = document.getElementById('selected-beneficiaries');
-        if (preview) {
-            const count = selected.length;
-            preview.textContent = count > 0 ? `${count} type(s) selected` : '';
-        }
-
-        closeModal('beneficiaries-modal');
-    }
-
-    function openBeneficiariesModal() {
-        openModal('beneficiaries-modal');
-        loadBeneficiaries();
-    }
+});
     </script>
 </body>
 </html>
