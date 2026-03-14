@@ -166,6 +166,30 @@ $nav_links = [
         #save-btn:hover:not(:disabled) {
             background: #a50d24;
         }
+
+        /* Consistent red Save buttons in ALL modals */
+        .modal-actions button:first-child {
+            background: #c8102e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .modal-actions button:first-child:hover {
+            background: #a50d24;
+        }
+        .modal-actions button:last-child {
+            background: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -385,16 +409,9 @@ $nav_links = [
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
             <h2>Manage Beneficiaries</h2>
             <div id="beneficiary-rows" style="margin-bottom: 16px;"></div>
-            <!-- NO + Add button -->
             <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
-                <button onclick="saveBeneficiaries()" 
-                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                    Save
-                </button>
-                <button onclick="closeModal('beneficiaries-modal')" 
-                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                    Cancel
-                </button>
+                <button onclick="saveBeneficiaries()">Save</button>
+                <button onclick="closeModal('beneficiaries-modal')">Cancel</button>
             </div>
         </div>
     </div>
@@ -454,7 +471,7 @@ function restoreCheckedState(type) {
     const hidden = document.getElementById(type + '-hidden');
     const currentRaw = hidden?.value?.trim() || '';
 
-    // Triple normalization - same as working edit.php
+    // Triple normalization - very forgiving
     const norm1 = currentRaw.toLowerCase().replace(/\s+/g, '');
     const norm2 = currentRaw.toLowerCase().replace(/[\s,]+/g, '');
     const norm3 = currentRaw.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');

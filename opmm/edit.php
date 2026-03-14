@@ -104,7 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE p.program_id = ?
                 ")->execute([$id]);
 
-                header("Location: list.php?success=updated");
+                // CHANGED: Redirect to view.php instead of list.php
+                header("Location: view.php?id={$id}&success=updated");
                 exit;
             } else {
                 $error = 'No changes were made.';
