@@ -243,7 +243,7 @@ $nav_links = [
             </div>
 
             <div class="form-group full-span">
-                <label>Implementation Period * (within program duration)</label>
+                <label>Implementation Period * (must be within parent program duration)</label>
                 <div class="date-group">
                     <input type="date" name="implementation_start"
                            value="<?= htmlspecialchars($entry['implementation_start'] ?? '') ?>"
@@ -258,8 +258,8 @@ $nav_links = [
                            required>
                 </div>
                 <small class="hint">
-                    Must be within parent program: <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_start']))) ?> – 
-                    <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_end']))) ?>
+                    Must be between <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_start']))) ?> 
+                    and <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_end']))) ?>
                 </small>
             </div>
 

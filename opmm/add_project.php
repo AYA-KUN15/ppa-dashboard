@@ -55,6 +55,22 @@ $fullSdgOptions = [
 $error = '';
 $show_confirmation = false;
 
+// Determine which data to use for repopulation
+$formData = $_POST; // default: fresh POST
+
+// If user cancelled from confirmation → load from session
+if (isset($_GET['cancel']) && $_GET['cancel'] === '1' && isset($_SESSION['pending_project'])) {
+    $formData = $_SESSION['pending_project'];
+    $formData['project_title']       = $formData['project_title'] ?? '';
+    $formData['type_agenda']         = $formData['type_of_extension_service_agenda'] ?? '';
+    $formData['sdg_goals']           = $formData['sdg_goals'] ?? '';
+    $formData['offices']             = $formData['offices_involved'] ?? '';
+    $formData['programs']            = $formData['programs_involved'] ?? '';
+    $formData['beneficiaries']       = $formData['beneficiaries_json'] ?? '[]';
+    $formData['implementation_start'] = $formData['implementation_start'] ?? '';
+    $formData['implementation_end']   = $formData['implementation_end'] ?? '';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['confirm']) && isset($_SESSION['pending_project'])) {
         $d = $_SESSION['pending_project'];
@@ -89,10 +105,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $programs      = trim($_POST['programs'] ?? '');
         $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
+        $benefData = json_decode($beneficiaries, true) ?? [];
+
+        $totalBenef = 0;
+        foreach ($benefData as $b) {
+            $totalBenef += ($b['male'] ?? 0) + ($b['female'] ?? 0);
+        }
+
         if (empty($project_title) || empty($impl_start) || empty($impl_end) ||
             empty($type_agenda) || empty($sdg_goals) || empty($offices) ||
-            empty($programs) || $beneficiaries === '[]') {
-            $error = 'Please fill all required fields.';
+            empty($programs) || $beneficiaries === '[]' || $totalBenef === 0) {
+            $error = 'Please fill all required fields (at least one beneficiary with total > 0).';
         } elseif (strtotime($impl_end) < strtotime($impl_start)) {
             $error = 'End date cannot be before start date.';
         } else {
@@ -150,12 +173,12 @@ $nav_links = [
 
                     <div class="confirm-item">
                         <strong>Implementation Start</strong>
-                        <p><?= htmlspecialchars($d['implementation_start']) ?></p>
+                        <p><?= htmlspecialchars(date('M d, Y', strtotime($d['implementation_start']))) ?></p>
                     </div>
 
                     <div class="confirm-item">
                         <strong>Implementation End</strong>
-                        <p><?= htmlspecialchars($d['implementation_end']) ?></p>
+                        <p><?= htmlspecialchars(date('M d, Y', strtotime($d['implementation_end']))) ?></p>
                     </div>
 
                     <div class="confirm-item">
@@ -196,7 +219,7 @@ $nav_links = [
                                     $total += $m + $f;
                                 }
                                 echo implode(' | ', $parts);
-                                if ($total > 0) echo " | <strong>Total:</strong> $total";
+                                if ($total > 0) echo " | Total: $total";
                             } else {
                                 echo 'None';
                             }
@@ -209,7 +232,7 @@ $nav_links = [
                     <form method="POST" style="display:inline;">
                         <button type="submit" name="confirm">Confirm & Save</button>
                     </form>
-                    <a href="add_project.php?program_id=<?= $program_id ?>" class="cancel-link">Cancel</a>
+                    <a href="add_project.php?program_id=<?= $program_id ?>&cancel=1" class="cancel-link">Cancel</a>
                 </div>
             </div>
         <?php else: ?>
@@ -217,54 +240,72 @@ $nav_links = [
                 <input type="hidden" name="program_id" value="<?= htmlspecialchars($program_id) ?>">
 
                 <div class="form-group">
-    <label for="project_title">Project Title *</label>
-    <input type="text" id="project_title" name="project_title" required>
-</div>
+                    <label for="project_title">Project Title *</label>
+                    <input type="text" id="project_title" name="project_title" 
+                           value="<?= htmlspecialchars($formData['project_title'] ?? '') ?>" required>
+                </div>
 
                 <div class="form-group">
                     <label>Type of Extension Service Agenda *</label>
                     <button type="button" onclick="openModal('type-modal')">Select Types</button>
-                    <div id="selected-types" class="compact-preview">None</div>
-                    <input type="hidden" name="type_agenda" id="type-hidden">
+                    <div id="selected-types" class="compact-preview">
+                        <?= htmlspecialchars($formData['type_agenda'] ?? 'None') ?>
+                    </div>
+                    <input type="hidden" name="type_agenda" id="type-hidden" 
+                           value="<?= htmlspecialchars($formData['type_agenda'] ?? '') ?>">
                 </div>
 
                 <div class="form-group">
                     <label>Sustainable Development Goals *</label>
                     <button type="button" onclick="openModal('sdg-modal')">Select SDGs</button>
-                    <div id="selected-sdgs" class="compact-preview">None</div>
-                    <input type="hidden" name="sdg_goals" id="sdg-hidden">
+                    <div id="selected-sdgs" class="compact-preview">
+                        <?= htmlspecialchars($formData['sdg_goals'] ?? 'None') ?>
+                    </div>
+                    <input type="hidden" name="sdg_goals" id="sdg-hidden" 
+                           value="<?= htmlspecialchars($formData['sdg_goals'] ?? '') ?>">
                 </div>
 
                 <div class="form-group">
                     <label>Offices Involved *</label>
                     <button type="button" onclick="openModal('offices-modal')">Select Offices</button>
-                    <div id="selected-offices" class="compact-preview">None</div>
-                    <input type="hidden" name="offices" id="offices-hidden">
+                    <div id="selected-offices" class="compact-preview">
+                        <?= htmlspecialchars($formData['offices'] ?? 'None') ?>
+                    </div>
+                    <input type="hidden" name="offices" id="offices-hidden" 
+                           value="<?= htmlspecialchars($formData['offices'] ?? '') ?>">
                 </div>
 
                 <div class="form-group">
                     <label>Programs Involved *</label>
                     <button type="button" onclick="openModal('programs-modal')">Select Programs</button>
-                    <div id="selected-programs" class="compact-preview">None</div>
-                    <input type="hidden" name="programs" id="programs-hidden">
+                    <div id="selected-programs" class="compact-preview">
+                        <?= htmlspecialchars($formData['programs'] ?? 'None') ?>
+                    </div>
+                    <input type="hidden" name="programs" id="programs-hidden" 
+                           value="<?= htmlspecialchars($formData['programs'] ?? '') ?>">
                 </div>
 
                 <div class="form-group full-span">
                     <label>Beneficiaries *</label>
-                    <button type="button" onclick="openModal('beneficiaries-modal')">Manage Beneficiaries</button>
-                    <div id="selected-beneficiaries" class="compact-preview">None</div>
-                    <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" value="[]">
+                    <button type="button" onclick="openModal('beneficiaries-modal')">Select Beneficiaries</button>
+                    <div id="selected-beneficiaries" class="compact-preview">
+                        <?= htmlspecialchars($formData['beneficiaries_preview'] ?? 'None') ?>
+                    </div>
+                    <input type="hidden" name="beneficiaries" id="beneficiaries-hidden" 
+                           value="<?= htmlspecialchars($formData['beneficiaries'] ?? '[]') ?>">
                 </div>
 
                 <div class="form-group full-span">
                     <label>Implementation Period * (within program duration)</label>
                     <div class="date-group">
                         <input type="date" name="implementation_start"
+                               value="<?= htmlspecialchars($formData['implementation_start'] ?? '') ?>"
                                min="<?= htmlspecialchars($parent['duration_start']) ?>"
                                max="<?= htmlspecialchars($parent['duration_end']) ?>"
                                required>
                         <span>to</span>
                         <input type="date" name="implementation_end"
+                               value="<?= htmlspecialchars($formData['implementation_end'] ?? '') ?>"
                                min="<?= htmlspecialchars($parent['duration_start']) ?>"
                                max="<?= htmlspecialchars($parent['duration_end']) ?>"
                                required>
@@ -319,46 +360,45 @@ $nav_links = [
     </div>
 
     <!-- SDG Modal -->
-<div id="sdg-modal" class="modal-overlay">
-    <div class="modal-box">
-        <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
-        <h2>Select Sustainable Development Goals</h2>
-        <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
-            <?php
-            $parentSdgStr = $parent['sdg_goals'] ?? '';
-            $parentSdgsLower = strtolower($parentSdgStr);
+    <div id="sdg-modal" class="modal-overlay">
+        <div class="modal-box">
+            <span class="close-modal" onclick="closeModal('sdg-modal')">×</span>
+            <h2>Select Sustainable Development Goals</h2>
+            <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
+                <?php
+                $parentSdgStr = $parent['sdg_goals'] ?? '';
+                $parentSdgsLower = strtolower($parentSdgStr);
 
-            $anyShown = false;
-            foreach ($fullSdgOptions as $opt):
-                // Check if the full goal name (with commas) appears in parent string
-                if (stripos($parentSdgStr, $opt) !== false):
-                    $anyShown = true;
-            ?>
-                <label class="modal-checkbox-label">
-                    <span><?= htmlspecialchars($opt) ?></span>
-                    <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
-                </label>
-            <?php
-                endif;
-            endforeach;
+                $anyShown = false;
+                foreach ($fullSdgOptions as $opt):
+                    if (stripos($parentSdgStr, $opt) !== false):
+                        $anyShown = true;
+                ?>
+                    <label class="modal-checkbox-label">
+                        <span><?= htmlspecialchars($opt) ?></span>
+                        <input type="checkbox" value="<?= htmlspecialchars($opt) ?>">
+                    </label>
+                <?php
+                    endif;
+                endforeach;
 
-            if (!$anyShown):
-            ?>
-                <p>No SDGs available from parent program.</p>
-            <?php endif; ?>
-        </div>
-        <div class="modal-actions">
-            <button onclick="saveModalSelections('sdg')" 
-                    style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                Save
-            </button>
-            <button onclick="closeModal('sdg-modal')" 
-                    style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                Cancel
-            </button>
+                if (!$anyShown):
+                ?>
+                    <p>No SDGs available from parent program.</p>
+                <?php endif; ?>
+            </div>
+            <div class="modal-actions">
+                <button onclick="saveModalSelections('sdg')" 
+                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Save
+                </button>
+                <button onclick="closeModal('sdg-modal')" 
+                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
     <!-- Offices Modal -->
     <div id="offices-modal" class="modal-overlay">
@@ -436,29 +476,28 @@ $nav_links = [
     <div id="beneficiaries-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
             <span class="close-modal" onclick="closeModal('beneficiaries-modal')">×</span>
-            <h2>Manage Beneficiaries</h2>
+            <h2>Select Beneficiaries from Program</h2>
             <div id="beneficiary-rows" style="margin-bottom: 16px;"></div>
-            <button type="button" onclick="addBeneficiaryRow()" 
-                    style="margin-bottom: 12px; padding: 10px 16px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                + Add Beneficiary Type
-            </button>
-            <div class="modal-actions" style="margin-top: 12px; display: flex; gap: 12px; justify-content: flex-end;">
-                <button onclick="saveBeneficiaries()" 
-                        style="padding: 10px 20px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                    Save
-                </button>
-                <button onclick="closeModal('beneficiaries-modal')" 
-                        style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                    Cancel
-                </button>
+            <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+                <button onclick="saveBeneficiaries()" style="background: #c8102e">Save</button>
+                <button onclick="closeModal('beneficiaries-modal')">Cancel</button>
             </div>
         </div>
     </div>
 
     <script>
+let beneficiariesData = [];
+
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
     document.body.classList.add('modal-open');
+
+    const type = modalId.replace('-modal', '');
+    if (['type','sdg','offices','programs'].includes(type)) {
+        setTimeout(() => restoreCheckedState(type), 100);
+    } else if (type === 'beneficiaries') {
+        setTimeout(loadBeneficiaries, 100);
+    }
 }
 
 function closeModal(modalId) {
@@ -472,7 +511,6 @@ function saveModalSelections(type) {
     const values = Array.from(checkboxes).map(cb => cb.value.trim());
 
     const hidden = document.getElementById(type + '-hidden');
-
     let displayId = '';
     if (type === 'type') displayId = 'selected-types';
     if (type === 'sdg') displayId = 'selected-sdgs';
@@ -484,113 +522,152 @@ function saveModalSelections(type) {
     if (hidden) {
         hidden.value = values.join(', ');
     }
-
     if (display) {
         display.textContent = values.length ? values.join(', ') : 'None';
     }
 
     closeModal(type + '-modal');
+    syncPreviews();
 }
 
-function addBeneficiaryRow(type = '', male = 0, female = 0) {
-    const container = document.getElementById('beneficiary-rows');
-    const row = document.createElement('div');
-    row.className = 'beneficiary-row';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '10px';
-    row.style.marginBottom = '10px';
-    row.style.flexWrap = 'wrap';
+function restoreCheckedState(type) {
+    const modal = document.getElementById(type + '-modal');
+    const hidden = document.getElementById(type + '-hidden');
+    const currentRaw = hidden?.value?.trim() || '';
 
-    row.innerHTML = `
-        <input type="text" 
-               placeholder="e.g., Farmers, Students, PWDs" 
-               value="${type}" 
-               class="beneficiary-type"
-               required
-               style="flex: 2; min-width: 180px;">
+    const norm1 = currentRaw.toLowerCase().replace(/\s+/g, '');
+    const norm2 = currentRaw.toLowerCase().replace(/[\s,]+/g, '');
+    const norm3 = currentRaw.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');
 
-        <input type="number" 
-               placeholder="Male" 
-               value="${male}" 
-               min="0" 
-               class="beneficiary-male"
-               required
-               style="flex: 1; max-width: 80px;">
+    const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        const val = cb.value.trim();
+        const n1 = val.toLowerCase().replace(/\s+/g, '');
+        const n2 = val.toLowerCase().replace(/[\s,]+/g, '');
+        const n3 = val.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');
 
-        <input type="number" 
-               placeholder="Female" 
-               value="${female}" 
-               min="0" 
-               class="beneficiary-female"
-               required
-               style="flex: 1; max-width: 80px;">
+        cb.checked = (norm1.includes(n1) || norm2.includes(n2) || norm3.includes(n3));
+    });
+}
 
-        <button type="button" 
-                onclick="this.closest('.beneficiary-row').remove();"
-                style="padding: 6px 10px; background: #c8102e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-            ×
-        </button>
-    `;
+function loadBeneficiaries() {
+    const rowsDiv = document.getElementById('beneficiary-rows');
+    rowsDiv.innerHTML = '';
 
-    container.appendChild(row);
+    const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
+    let currentEntries = [];
+    try {
+        currentEntries = JSON.parse(currentJson);
+    } catch (e) {
+        console.error("Error parsing current beneficiaries:", e);
+    }
+
+    const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+    let parentEntries = [];
+    try {
+        parentEntries = JSON.parse(parentJson);
+    } catch (e) {
+        console.error("Error parsing parent beneficiaries JSON:", e, parentJson);
+        parentEntries = [];
+    }
+
+    if (!Array.isArray(parentEntries) || parentEntries.length === 0) {
+        rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in parent program.</p>';
+        return;
+    }
+
+    beneficiariesData = parentEntries.map((e, i) => {
+        const entryType = (e.type || 'Unnamed').trim();
+        const isSelected = currentEntries.some(c => {
+            return (c.type || '').trim().toLowerCase() === entryType.toLowerCase();
+        });
+
+        return {
+            type: entryType,
+            male: Number(e.male || 0),
+            female: Number(e.female || 0),
+            index: i,
+            selected: isSelected
+        };
+    });
+
+    beneficiariesData.forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '16px';
+        row.style.marginBottom = '12px';
+        row.style.padding = '12px';
+        row.style.border = '1px solid #d1d5db';
+        row.style.borderRadius = '6px';
+
+        row.innerHTML = `
+            <input type="checkbox" ${entry.selected ? 'checked' : ''} 
+                   onchange="toggleBeneficiary(${index}, this.checked)" style="width:24px; height:24px;">
+            <div style="flex: 1;">
+                <strong>${entry.type}</strong><br>
+                <span style="color:#6b7280;">
+                    Male: ${entry.male} | Female: ${entry.female}
+                </span>
+            </div>
+        `;
+
+        rowsDiv.appendChild(row);
+    });
+}
+
+function toggleBeneficiary(index, checked) {
+    if (beneficiariesData[index]) beneficiariesData[index].selected = checked;
 }
 
 function saveBeneficiaries() {
-    const rows = document.querySelectorAll('#beneficiary-rows .beneficiary-row');
-    const data = [];
+    const selected = beneficiariesData.filter(b => b.selected).map(b => ({
+        type: b.type,
+        male: b.male,
+        female: b.female
+    }));
 
-    rows.forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        const type = inputs[0].value.trim();
-        const male = parseInt(inputs[1].value) || 0;
-        const female = parseInt(inputs[2].value) || 0;
+    const hidden = document.getElementById('beneficiaries-hidden');
+    if (hidden) hidden.value = JSON.stringify(selected);
 
-        if (type) {
-            data.push({ type, male, female });
-        }
-    });
-
-    const json = JSON.stringify(data);
-    document.getElementById('beneficiaries-hidden').value = json;
-
-    let summary = '';
-    let total = 0;
-
-    data.forEach(b => {
-        summary += `${b.type}: ${b.male} M, ${b.female} F | `;
-        total += b.male + b.female;
-    });
-
-    summary += total > 0 ? `Total: ${total}` : 'None';
-
-    document.getElementById('selected-beneficiaries').textContent = summary.trim();
+    const preview = document.getElementById('selected-beneficiaries');
+    if (preview) {
+        const count = selected.length;
+        preview.textContent = count > 0 ? `${count} type(s) selected` : 'None';
+    }
 
     closeModal('beneficiaries-modal');
+    syncPreviews();
 }
 
-window.addEventListener('load', function() {
+function syncPreviews() {
     ['type', 'sdg', 'offices', 'programs'].forEach(type => {
         const hidden = document.getElementById(type + '-hidden');
         const display = document.getElementById('selected-' + type);
         if (hidden && display) {
-            display.textContent = hidden.value.trim() ? hidden.value : 'None';
+            const val = hidden.value.trim();
+            display.textContent = val || 'None';
         }
     });
 
-    const json = document.getElementById('beneficiaries-hidden')?.value || '[]';
-    try {
-        const data = JSON.parse(json);
-        if (data.length === 0) {
-            document.getElementById('selected-beneficiaries').textContent = 'None';
-        } else {
-            data.forEach(b => addBeneficiaryRow(b.type, b.male, b.female));
-            saveBeneficiaries(); // refresh preview
+    const benHidden = document.getElementById('beneficiaries-hidden');
+    const benDisplay = document.getElementById('selected-beneficiaries');
+    if (benHidden && benDisplay) {
+        try {
+            const data = JSON.parse(benHidden.value || '[]');
+            const count = data.length;
+            benDisplay.textContent = count > 0 ? `${count} type(s) selected` : 'None';
+        } catch (e) {
+            benDisplay.textContent = 'None';
         }
-    } catch (e) {
-        document.getElementById('selected-beneficiaries').textContent = 'None';
     }
+}
+
+window.addEventListener('load', function() {
+    syncPreviews();
+    setTimeout(syncPreviews, 100);
 });
     </script>
+
 </body>
 </html>
