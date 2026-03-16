@@ -10,7 +10,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once 'config/db.php';
 
 // ────────────────────────────────────────────────
-// 1. Calendar: active activities duration bars only
+// 1. Calendar: active activities duration bars (unchanged)
 // ────────────────────────────────────────────────
 $events = [];
 
@@ -26,7 +26,7 @@ try {
         $events[] = [
             'title' => $row['activity_name'] . ' (Activity)',
             'start' => $row['implementation_start'],
-            'end'   => date('Y-m-d', strtotime($row['implementation_end'] . ' +1 day')), // inclusive end
+            'end'   => date('Y-m-d', strtotime($row['implementation_end'] . ' +1 day')),
             'url'   => "opmm/view_activity.php?id={$row['id']}",
             'color' => '#6B7280',
             'textColor' => '#FFFFFF',
@@ -39,31 +39,70 @@ try {
 }
 
 // ────────────────────────────────────────────────
-// 2. Monitoring Due: calculate due activities
+// 2. Monitoring Due: only overdue + mae_phase programs
 // ────────────────────────────────────────────────
 $today = date('Y-m-d');
-$dueActivities = [];
+$duePrograms = [];
 
 try {
     $stmt = $pdo->query("
-        SELECT id, activity_name, implementation_start, implementation_end, frequency_monitoring
-        FROM activity_entries
-        WHERE status = 'active'
-          AND implementation_start IS NOT NULL
-          AND implementation_end IS NOT NULL
-          AND frequency_monitoring IN ('Monthly', 'Quarterly', 'Semi-Annually', 'Annually')
-        ORDER BY implementation_start ASC
+        SELECT 
+            p.id, 
+            p.title AS program_title, 
+            p.duration_start, 
+            p.duration_end, 
+            p.monitoring_frequency, 
+            p.status,
+            COUNT(a.id) AS total_activities,
+            SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) AS completed_activities
+        FROM program_entries p
+        LEFT JOIN project_entries pr ON pr.program_id = p.id
+        LEFT JOIN activity_entries a ON a.project_id = pr.id
+        WHERE p.status IN ('overdue', 'mae_phase')
+          AND p.duration_start IS NOT NULL
+          AND p.duration_end IS NOT NULL
+        GROUP BY p.id
+        ORDER BY p.duration_start ASC
     ");
-    $activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($activities as $act) {
-        $freq = strtolower($act['frequency_monitoring']);
-        $start = new DateTime($act['implementation_start']);
-        $end   = new DateTime($act['implementation_end']);
+    foreach ($programs as $prog) {
+        $freq = strtolower($prog['monitoring_frequency'] ?? '');
+        $start = new DateTime($prog['duration_start']);
+        $end   = new DateTime($prog['duration_end']);
+        $yearsInProgress = (int) $start->diff(new DateTime($today))->y;
+        $allProjectsDone = ($prog['total_activities'] > 0 && $prog['completed_activities'] == $prog['total_activities']);
 
-        // Approximate next due date (simple interval from start)
+        if ($prog['status'] === 'mae_phase') {
+            // M&E Phase: all projects done + 3+ years passed
+            $duePrograms[] = [
+                'id'       => $prog['id'],
+                'name'     => $prog['program_title'],
+                'freq'     => ucfirst($freq),
+                'due'      => 'Ongoing Evaluation (M&E Phase)',
+                'overdue'  => false,
+                'days'     => 0,
+                'special'  => 'mae_phase'
+            ];
+            continue;
+        }
+
+        if ($prog['status'] === 'overdue') {
+            // Overdue: 3+ years + incomplete projects
+            $duePrograms[] = [
+                'id'       => $prog['id'],
+                'name'     => $prog['program_title'],
+                'freq'     => ucfirst($freq),
+                'due'      => 'Overdue (3+ years incomplete)',
+                'overdue'  => true,
+                'days'     => -$yearsInProgress * 365,
+                'special'  => 'overdue'
+            ];
+            continue;
+        }
+
+        // Fallback: frequency-based for any remaining edge cases (<3 years, active, incomplete)
         $nextDue = clone $start;
-
         switch ($freq) {
             case 'monthly':
                 $nextDue->modify('first day of next month');
@@ -89,29 +128,30 @@ try {
                 continue 2;
         }
 
-        // If next due is in the past or very soon → consider it due
         $dueDate = $nextDue->format('Y-m-d');
         $daysUntil = (new DateTime($dueDate))->diff(new DateTime($today))->days * 
                      ((new DateTime($dueDate) < new DateTime($today)) ? -1 : 1);
 
         if ($dueDate <= $today || $daysUntil <= 30) {
-            $dueActivities[] = [
-                'id'       => $act['id'],
-                'name'     => $act['activity_name'],
+            $duePrograms[] = [
+                'id'       => $prog['id'],
+                'name'     => $prog['program_title'],
                 'freq'     => ucfirst($freq),
                 'due'      => $dueDate,
                 'overdue'  => $dueDate < $today,
-                'days'     => $daysUntil
+                'days'     => $daysUntil,
+                'special'  => null
             ];
         }
     }
 } catch (PDOException $e) {
-    $dueActivities = [];
+    error_log("Monitoring query error: " . $e->getMessage());
+    $duePrograms = [];
 }
 
 $nav_links = [
-    ['url' => 'index.php',          'label' => 'Home', 'active' => true],
-    ['url' => 'opmm/list.php',      'label' => 'PPA',  'active' => false],
+    ['url' => 'index.php', 'label' => 'Home', 'active' => true],
+    ['url' => 'opmm/list.php', 'label' => 'PPA', 'active' => false],
 ];
 
 include 'includes/header.php';
@@ -250,7 +290,7 @@ include 'includes/header.php';
             background: #fef2f2;
         }
 
-        .monitoring-card.due-soon {
+        .monitoring-card.mae_phase {
             border-color: #f59e0b;
             background: #fffbeb;
         }
@@ -276,7 +316,7 @@ include 'includes/header.php';
             color: #ef4444;
         }
 
-        .monitoring-card .due-date.due-soon {
+        .monitoring-card .due-date.mae_phase {
             color: #f59e0b;
         }
 
@@ -307,33 +347,40 @@ include 'includes/header.php';
     <main class="dashboard-content">
         <h1>PPA Monitoring Dashboard</h1>
 
-        <!-- Calendar -->
+        <!-- Calendar: Activities -->
         <div id="calendar"></div>
 
-        <!-- Monitoring Due Cards -->
+        <!-- Monitoring Due: Programs -->
         <div class="monitoring-section">
             <div class="monitoring-header">
-                <h2>Monitoring Due This Period</h2>
-                <?php if (!empty($dueActivities)): ?>
-                    <span class="due-count"><?= count($dueActivities) ?> due</span>
+                <h2>Program Monitoring Due This Period</h2>
+                <?php if (!empty($duePrograms)): ?>
+                    <span class="due-count"><?= count($duePrograms) ?> due</span>
                 <?php endif; ?>
             </div>
 
-            <?php if (empty($dueActivities)): ?>
+            <?php if (empty($duePrograms)): ?>
                 <p style="color:#6b7280; text-align:center; font-style:italic;">
-                    All monitoring is up to date.
+                    All program monitoring is up to date.
                 </p>
             <?php else: ?>
                 <div class="monitoring-cards">
-                    <?php foreach ($dueActivities as $act): ?>
-                        <div class="monitoring-card <?= $act['overdue'] ? 'overdue' : ($act['days'] <= 30 ? 'due-soon' : '') ?>">
-                            <div class="title"><?= htmlspecialchars($act['name']) ?></div>
-                            <div class="freq">Frequency: <?= htmlspecialchars($act['freq']) ?></div>
-                            <div class="due-date <?= $act['overdue'] ? 'overdue' : ($act['days'] <= 30 ? 'due-soon' : '') ?>">
-                                <?= $act['overdue'] ? 'Overdue since ' : 'Due on ' ?>
-                                <?= date('M d, Y', strtotime($act['due'])) ?>
+                    <?php foreach ($duePrograms as $prog): ?>
+                        <?php
+                        $cardClass = $prog['overdue'] ? 'overdue' : 'mae_phase';
+                        $dueTextClass = $prog['overdue'] ? 'overdue' : 'mae_phase';
+                        $dueDisplay = $prog['overdue'] 
+                            ? 'Overdue (3+ years incomplete)' 
+                            : 'Ongoing Evaluation (M&E Phase)';
+                        ?>
+
+                        <div class="monitoring-card <?= $cardClass ?>">
+                            <div class="title"><?= htmlspecialchars($prog['name']) ?></div>
+                            <div class="freq">Frequency: <?= htmlspecialchars($prog['freq']) ?></div>
+                            <div class="due-date <?= $dueTextClass ?>">
+                                <?= $dueDisplay ?>
                             </div>
-                            <a href="opmm/view_activity.php?id=<?= $act['id'] ?>" class="action">View Activity</a>
+                            <a href="opmm/view.php?id=<?= $prog['id'] ?>" class="action">View Program</a>
                         </div>
                     <?php endforeach; ?>
                 </div>

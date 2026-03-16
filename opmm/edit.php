@@ -73,10 +73,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $source_fund = trim($_POST['source_of_fund'] ?? '');
     $monitoring_frequency = trim($_POST['monitoring_frequency'] ?? '');
 
+    // Validate end date is Dec 31 of (start year + 5)
+    $duration_valid = false;
+    if ($duration_start && $duration_end) {
+        $start = new DateTime($duration_start);
+        $expected_year = $start->format('Y') + 5;
+        $expected_end = new DateTime("$expected_year-12-31");
+        $submitted_end = new DateTime($duration_end);
+
+        if ($submitted_end->format('Y-m-d') === $expected_end->format('Y-m-d')) {
+            $duration_valid = true;
+        }
+    }
+
     if (empty($title) || empty($location) || empty($duration_start) || empty($duration_end) ||
-        empty($type) || empty($sdg) || empty($offices) || empty($programs) ||
+        !$duration_valid || empty($type) || empty($sdg) || empty($offices) || empty($programs) ||
         empty($partners) || $total_cost <= 0 || empty($source_fund) || empty($monitoring_frequency)) {
-        $error = 'Please fill all required fields.';
+        $error = 'Please fill all required fields. Duration end must be December 31 of the year +5 from start year.';
     } else {
         try {
             $stmt = $pdo->prepare("
@@ -104,7 +117,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE p.program_id = ?
                 ")->execute([$id]);
 
-                // CHANGED: Redirect to view.php instead of list.php
                 header("Location: view.php?id={$id}&success=updated");
                 exit;
             } else {
@@ -156,9 +168,9 @@ $nav_links = [
             <div class="form-group full-span">
                 <label>Duration & Frequency of Monitoring *</label>
                 <div class="date-group">
-                    <input type="date" name="duration_start" value="<?= htmlspecialchars($entry['duration_start'] ?? '') ?>" required>
+                    <input type="date" name="duration_start" id="duration_start" value="<?= htmlspecialchars($entry['duration_start'] ?? '') ?>" required onchange="updateEndDate()">
                     <span>to</span>
-                    <input type="date" name="duration_end" value="<?= htmlspecialchars($entry['duration_end'] ?? '') ?>" required>
+                    <input type="date" name="duration_end" id="duration_end" value="<?= htmlspecialchars($entry['duration_end'] ?? '') ?>" readonly required>
                     <select name="monitoring_frequency" required>
                         <option value="">Frequency</option>
                         <option value="Monthly"    <?= ($entry['monitoring_frequency'] ?? '') === 'Monthly'    ? 'selected' : '' ?>>Monthly</option>
@@ -168,6 +180,7 @@ $nav_links = [
                     </select>
                 </div>
                 <small class="hint">
+                    Program always ends on December 31 of the year +5 from start year.<br>
                     Frequency applies during monitoring & evaluation (typically last 2 years).
                 </small>
             </div>
@@ -328,6 +341,19 @@ $nav_links = [
     </div>
 
     <script>
+    // Auto-set duration_end to Dec 31 of (start year + 5)
+    function updateEndDate() {
+        const startInput = document.getElementById('duration_start');
+        const endInput = document.getElementById('duration_end');
+        if (startInput.value) {
+            const start = new Date(startInput.value);
+            const year = start.getFullYear() + 5;
+            endInput.value = `${year}-12-31`;
+        } else {
+            endInput.value = '';
+        }
+    }
+
     function openModal(modalId) {
         document.getElementById(modalId).classList.add('active');
         document.body.classList.add('modal-open');
@@ -423,7 +449,7 @@ $nav_links = [
         let total = 0;
         data.forEach(b => {
             summary += `${b.type}: ${b.male} male, ${b.female} female | `;
-            total += b.male + b.female;
+            total += (b.male || 0) + (b.female || 0);
         });
         summary = summary.trim().replace(/ \| $/, '');
         if (total > 0) summary += ` | Total: ${total}`;
@@ -548,15 +574,20 @@ $nav_links = [
             source_of_fund: document.getElementById('source-hidden').value.trim()
         };
 
+        // Load previews and beneficiaries
         syncPreviews();
         loadBeneficiaries();
 
+        // Auto-set end date on load
+        updateEndDate();
+
+        // Listen for changes
         document.querySelectorAll('input, select').forEach(el => {
             el.addEventListener('input', () => { checkFormChanges(); syncPreviews(); });
             el.addEventListener('change', () => { checkFormChanges(); syncPreviews(); });
         });
 
-        // Initial check + force disabled/gray state on load
+        // Initial button state
         const saveBtn = document.getElementById('save-btn');
         saveBtn.disabled = true;
         saveBtn.style.background = '#d1d5db';
@@ -564,6 +595,21 @@ $nav_links = [
         saveBtn.style.cursor = 'not-allowed';
 
         checkFormChanges();
+    });
+
+    // Validate on submit: end must be Dec 31 of (start year + 5)
+    document.getElementById('edit-form')?.addEventListener('submit', function(e) {
+        const start = document.getElementById('duration_start').value;
+        const end = document.getElementById('duration_end').value;
+
+        if (start && end) {
+            const s = new Date(start);
+            const expectedEnd = `${s.getFullYear() + 5}-12-31`;
+            if (end !== expectedEnd) {
+                e.preventDefault();
+                alert('Program must end on December 31 of the year +5 from the start year.');
+            }
+        }
     });
     </script>
 

@@ -52,10 +52,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $source_fund = trim($_POST['source_of_fund'] ?? '');
         $monitoring_frequency = trim($_POST['monitoring_frequency'] ?? '');
 
+        // Validate end date is Dec 31 of (start year + 5)
+        $duration_valid = false;
+        if ($duration_start && $duration_end) {
+            $start = new DateTime($duration_start);
+            $expected_end = new DateTime($duration_end);
+            $expected_year = $start->format('Y') + 5;
+            $expected_date = new DateTime("$expected_year-12-31");
+
+            if ($expected_end->format('Y-m-d') === $expected_date->format('Y-m-d')) {
+                $duration_valid = true;
+            }
+        }
+
         if (empty($title) || empty($location) || empty($duration_start) || empty($duration_end) ||
-            empty($type) || empty($sdg) || empty($offices) || empty($programs) ||
+            !$duration_valid || empty($type) || empty($sdg) || empty($offices) || empty($programs) ||
             empty($partners) || $total_cost <= 0 || empty($source_fund) || empty($monitoring_frequency)) {
-            $error = 'Please fill all required fields.';
+            $error = 'Please fill all required fields. Duration end must be December 31 of the year +5 from start year.';
         } else {
             $_SESSION['pending_program'] = [
                 'title' => $title, 'location' => $location, 'duration_start' => $duration_start,
@@ -190,7 +203,7 @@ $nav_links = [
                 </div>
             </div>
         <?php else: ?>
-            <form method="POST" class="program-form">
+            <form method="POST" class="program-form" id="add-program-form">
                 <div class="form-group">
                     <label for="title">Title *</label>
                     <input type="text" id="title" name="title" required>
@@ -204,9 +217,9 @@ $nav_links = [
                 <div class="form-group full-span">
                     <label>Duration & Frequency of Monitoring *</label>
                     <div class="date-group">
-                        <input type="date" name="duration_start" required>
+                        <input type="date" name="duration_start" id="duration_start" required onchange="updateEndDate()">
                         <span>to</span>
-                        <input type="date" name="duration_end" required>
+                        <input type="date" name="duration_end" id="duration_end" readonly required>
                         <select name="monitoring_frequency" required>
                             <option value="">Frequency</option>
                             <option value="Monthly">Monthly</option>
@@ -216,6 +229,7 @@ $nav_links = [
                         </select>
                     </div>
                     <small class="hint">
+                        Program always ends on December 31 of the 5th year after start year.<br>
                         Frequency applies during monitoring & evaluation (typically last 2 years).
                     </small>
                 </div>
@@ -385,8 +399,8 @@ $nav_links = [
                         <input type="checkbox" value="Decent Work and Economic Growth">
                     </label>
                     <label class="modal-checkbox-label">
-                        <span>Industry, Innovation, and Infrastructure</span>
-                        <input type="checkbox" value="Industry, Innovation, and Infrastructure">
+                        <span>Industry, Innovation and Infrastructure</span>
+                        <input type="checkbox" value="Industry, Innovation and Infrastructure">
                     </label>
                     <label class="modal-checkbox-label">
                         <span>Reduced Inequalities</span>
@@ -605,33 +619,48 @@ function saveBeneficiaries() {
     closeModal('beneficiaries-modal');
 }
 
+// Auto-set duration_end to Dec 31 of (start year + 5)
+function updateEndDate() {
+    const startInput = document.getElementById('duration_start');
+    const endInput = document.getElementById('duration_end');
+    if (startInput.value) {
+        const start = new Date(startInput.value);
+        const year = start.getFullYear() + 5;
+        endInput.value = `${year}-12-31`;
+    } else {
+        endInput.value = '';
+    }
+}
+
+// Validate on submit: end must be Dec 31 of (start year + 5)
+document.getElementById('add-program-form')?.addEventListener('submit', function(e) {
+    const start = document.getElementById('duration_start').value;
+    const end = document.getElementById('duration_end').value;
+
+    if (start && end) {
+        const s = new Date(start);
+        const expectedEnd = `${s.getFullYear() + 5}-12-31`;
+        if (end !== expectedEnd) {
+            e.preventDefault();
+            alert('Program must end on December 31 of the year +5 from the start year.');
+        }
+    }
+});
+
 window.addEventListener('load', function() {
-    const typeHidden = document.getElementById('type-hidden');
-    if (typeHidden && typeHidden.value) {
-        document.getElementById('selected-types').textContent = typeHidden.value;
-    } else {
-        document.getElementById('selected-types').textContent = 'None';
-    }
-
-    const sdgHidden = document.getElementById('sdg-hidden');
-    if (sdgHidden && sdgHidden.value) {
-        document.getElementById('selected-sdgs').textContent = sdgHidden.value;
-    } else {
-        document.getElementById('selected-sdgs').textContent = 'None';
-    }
-
-    const sourceHidden = document.getElementById('source-hidden');
-    if (sourceHidden && sourceHidden.value) {
-        document.getElementById('selected-source').textContent = sourceHidden.value;
-    } else {
-        document.getElementById('selected-source').textContent = 'None';
-    }
+    ['type', 'sdg', 'source'].forEach(type => {
+        const hidden = document.getElementById(type + '-hidden');
+        const display = document.getElementById('selected-' + type);
+        if (hidden && display) {
+            display.textContent = hidden.value.trim() ? hidden.value : 'None';
+        }
+    });
 
     const json = document.getElementById('beneficiaries-json')?.value || '[]';
     try {
         const data = JSON.parse(json);
         data.forEach(b => addBeneficiaryRow(b.type, b.male, b.female));
-        saveBeneficiaries();
+        saveBeneficiaries(); // refresh preview
     } catch (e) {
         console.error('Invalid beneficiaries JSON on load:', e);
         document.getElementById('selected-beneficiaries').textContent = 'None';
