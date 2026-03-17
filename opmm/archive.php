@@ -1,5 +1,5 @@
 <?php
-// archive.php - Monitoring & Evaluation Phase (completed programs)
+// archive.php - Monitoring & Evaluation Phase (non-active programs)
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -26,7 +26,7 @@ try {
 
 $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => false],
-    ['url' => '/opmm/list.php',     'label' => 'PPA',  'active' => false],
+    ['url' => '/opmm/list.php', 'label' => 'PPA', 'active' => false],
 ];
 ?>
 
@@ -42,7 +42,6 @@ $nav_links = [
     <link rel="stylesheet" href="../css/style.css">
 
     <style>
-        /* Reuse same quarter button styles from list.php / view_project.php */
         .quarter-item {
             display: flex;
             align-items: center;
@@ -74,6 +73,18 @@ $nav_links = [
             color: #6b7280;
         }
 
+        /* Yellow styling for M&E Phase programs */
+        .quarter-btn.mae-phase {
+            background: #fffbeb !important;
+            border: 2px solid #f59e0b !important;
+            color: #b45309 !important;
+        }
+
+        .quarter-btn.mae-phase:hover {
+            background: #fef3c7 !important;
+            border-color: #d97706 !important;
+        }
+
         .edit-icon-btn {
             flex: 0 0 42px;
             width: 42px;
@@ -98,16 +109,23 @@ $nav_links = [
             background: rgba(200, 16, 46, 0.1);
         }
 
-        /* Completed green style */
-        .quarter-btn.completed-project {
-            background: #ecfdf5 !important;
-            border: 2px solid #10b981 !important;
-            color: #065f46 !important;
+        /* Completed Programs button - red, bold, longer, smaller font */
+        .action-btn.completed-programs {
+            display: inline-block;
+            padding: 12px 32px;
+            background: #c8102e;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05rem; /* smaller to fit better */
+            min-width: 240px;
+            text-align: center;
+            transition: background 0.2s;
         }
 
-        .quarter-btn.completed-project:hover {
-            background: #d1fae5 !important;
-            border-color: #059669 !important;
+        .action-btn.completed-programs:hover {
+            background: #a50d24;
         }
     </style>
 </head>
@@ -121,20 +139,23 @@ $nav_links = [
         <?php elseif (empty($programs)): ?>
             <p>No programs in Monitoring & Evaluation phase yet.</p>
         <?php else: ?>
+            <!-- Completed Programs button at the top -->
+            <div style="margin-bottom: 24px; text-align: left;">
+                <a href="complete.php" class="action-btn completed-programs">Completed Programs</a>
+            </div>
+
             <div class="quarter-scroll-container">
                 <div class="quarter-buttons">
                     <?php foreach ($programs as $program): ?>
                         <div class="quarter-item">
                             <!-- Main card button goes to VIEW page -->
-                            <button class="quarter-btn completed-project"
+                            <button class="quarter-btn mae-phase"
                                     onclick="window.location.href='../opmm/view.php?mode=program&id=<?= $program['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
-                                <span class="quarter-btn-subtitle">
-                                    M&E Phase
-                                </span>
+                                <span class="quarter-btn-subtitle">M&E Phase</span>
                             </button>
 
-                            <!-- Pencil icon goes to EDIT page (to allow reactivation/changes) -->
+                            <!-- Pencil icon goes to EDIT page -->
                             <button class="action-icon edit-icon-btn"
                                     onclick="window.location.href='../opmm/edit.php?mode=program&id=<?= $program['id'] ?>'"
                                     title="Edit program">
@@ -145,10 +166,6 @@ $nav_links = [
                 </div>
             </div>
         <?php endif; ?>
-
-        <div style="margin-top: 16px;">
-            <a href="../list.php" class="action-btn">Back to Active Programs</a>
-        </div>
     </main>
 
 </body>

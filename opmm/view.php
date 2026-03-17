@@ -18,6 +18,7 @@ if (!$id || !is_numeric($id) || $mode !== 'program') {
 }
 
 try {
+    // Fetch program details
     $stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals,
@@ -34,7 +35,7 @@ try {
         exit;
     }
 
-    // Fetch all projects under this program
+    // Fetch all projects (for display)
     $projListStmt = $pdo->prepare("
         SELECT id, project_title, implementation_start, implementation_end, status
         FROM project_entries WHERE program_id = ?
@@ -43,39 +44,63 @@ try {
     $projListStmt->execute([$id]);
     $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Corrected completion logic:
-    // Program is completed ONLY if:
-    // - It has at least one project, AND
-    // - ALL projects are marked 'completed' (no active projects remain)
-    $programStatus = 'active'; // default
+    // ────────────────────────────────────────────────
+    // Recalculate and update program status (your exact rules)
+    // ────────────────────────────────────────────────
+    $today = date('Y-m-d');
 
-    if (!empty($projectsList)) {
-        $allProjectsCompleted = true;
-        foreach ($projectsList as $proj) {
-            if ($proj['status'] !== 'completed') {
-                $allProjectsCompleted = false;
-                break;
-            }
-        }
+    $stmt = $pdo->prepare("
+        UPDATE program_entries p
+        SET p.status = CASE
+            -- 1. Duration fully ended → Completed (highest priority)
+            WHEN p.duration_end IS NOT NULL AND p.duration_end < CURDATE() THEN 'completed'
 
-        if ($allProjectsCompleted) {
-            $programStatus = 'completed';
-        }
-    }
-    // If zero projects → remain 'active' (new program)
+            -- 2. All projects completed AND 3+ years passed → M&E Phase
+            WHEN (
+                NOT EXISTS (
+                    SELECT 1 FROM project_entries pr 
+                    WHERE pr.program_id = p.id AND pr.status != 'completed'
+                )
+                AND p.duration_start IS NOT NULL
+                AND DATE_ADD(p.duration_start, INTERVAL 3 YEAR) < CURDATE()
+            ) THEN 'mae_phase'
 
-    // Auto-update program status if it changed
-    if ($programStatus !== $program['status']) {
-        $updateProg = $pdo->prepare("
-            UPDATE program_entries 
-            SET status = ?, updated_at = NOW() 
-            WHERE id = ?
-        ");
-        $updateProg->execute([$programStatus, $id]);
-    }
+            -- 3. 3+ years passed AND any project not completed → Overdue
+            WHEN p.duration_start IS NOT NULL
+                 AND DATE_ADD(p.duration_start, INTERVAL 3 YEAR) < CURDATE()
+                 AND EXISTS (
+                     SELECT 1 FROM project_entries pr 
+                     WHERE pr.program_id = p.id AND pr.status != 'completed'
+                 ) THEN 'overdue'
+
+            -- Otherwise: Active
+            ELSE 'active'
+        END,
+        p.updated_at = NOW()
+        WHERE p.id = ?
+    ");
+    $stmt->execute([$id]);
+
+    // Refresh program status after update
+    $stmt = $pdo->prepare("SELECT status FROM program_entries WHERE id = ?");
+    $stmt->execute([$id]);
+    $program['status'] = $stmt->fetchColumn();
+
+    // ────────────────────────────────────────────────
+    // Cascade status only to activities under ACTIVE projects
+    // (Do NOT force projects back to active - prevents un-completing)
+    // ────────────────────────────────────────────────
+    $pdo->prepare("
+        UPDATE activity_entries a
+        INNER JOIN project_entries pr ON a.project_id = pr.id
+        SET a.status = 'active', a.updated_at = NOW()
+        WHERE pr.program_id = ? 
+          AND pr.status = 'active'
+    ")->execute([$id]);
 
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
+    error_log($error);
 }
 
 $nav_links = [
@@ -161,6 +186,17 @@ $nav_links = [
             background: #d1fae5 !important;
             border-color: #059669 !important;
         }
+
+        /* Status text colors only (no background/pill) */
+        .status-text {
+            font-weight: 600;
+            font-size: 1rem; /* same size as other labels */
+        }
+
+        .status-active    { color: #3b82f6; } /* blue   */
+        .status-overdue   { color: #c8102e; } /* red    */
+        .status-mae_phase { color: #f59e0b; } /* orange */
+        .status-completed { color: #10b981; } /* green  */
     </style>
 </head>
 
@@ -175,8 +211,14 @@ $nav_links = [
             <div class="program-details">
                 <p><strong>Location:</strong> <?= htmlspecialchars($program['location'] ?? 'N/A') ?></p>
                 <p><strong>Duration:</strong> 
-                    <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_start']))) ?> – 
-                    <?= htmlspecialchars(date('M d, Y', strtotime($program['duration_end']))) ?>
+                    <?php
+                    if ($program['duration_start'] && $program['duration_end']) {
+                        echo htmlspecialchars(date('M d, Y', strtotime($program['duration_start']))) . ' – ' .
+                             htmlspecialchars(date('M d, Y', strtotime($program['duration_end'])));
+                    } else {
+                        echo 'Not specified';
+                    }
+                    ?>
                 </p>
                 <p><strong>Frequency of Monitoring:</strong> 
                     <?= htmlspecialchars($program['monitoring_frequency'] ?? 'Not specified') ?>
@@ -211,12 +253,29 @@ $nav_links = [
                 </p>
                 <p><strong>Status:</strong> 
                     <?php
-                    if ($programStatus === 'completed') {
-                        echo '<span style="color: #10b981; font-weight: 600;">Completed (Ongoing Monitoring & Evaluation)</span>';
-                    } else {
-                        echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
+                    $statusClass = 'status-active';
+                    $statusText = 'Active';
+
+                    switch ($program['status']) {
+                        case 'active':
+                            $statusClass = 'status-active';
+                            $statusText = 'Active';
+                            break;
+                        case 'overdue':
+                            $statusClass = 'status-overdue';
+                            $statusText = 'Overdue';
+                            break;
+                        case 'mae_phase':
+                            $statusClass = 'status-mae_phase';
+                            $statusText = 'Monitoring & Evaluation Phase';
+                            break;
+                        case 'completed':
+                            $statusClass = 'status-completed';
+                            $statusText = 'Completed';
+                            break;
                     }
                     ?>
+                    <span class="status-text <?= $statusClass ?>"><?= $statusText ?></span>
                 </p>
             </div>
 

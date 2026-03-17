@@ -189,6 +189,15 @@ $nav_links = [
             background: #d1fae5 !important;
             border-color: #059669 !important;
         }
+
+        /* Status text colors only (no background/pill) */
+        .status-text {
+            font-weight: 600;
+            font-size: 1rem; /* consistent with view.php */
+        }
+
+        .status-active    { color: #3b82f6; } /* blue (now matches view.php) */
+        .status-completed { color: #10b981; } /* green */
     </style>
 </head>
 
@@ -241,12 +250,10 @@ $nav_links = [
                 </p>
                 <p><strong>Status:</strong> 
                     <?php
-                    if ($project['status'] === 'completed') {
-                        echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
-                    } else {
-                        echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
-                    }
+                    $statusClass = ($project['status'] === 'completed') ? 'status-completed' : 'status-active';
+                    $statusText = ($project['status'] === 'completed') ? 'Completed' : 'Active';
                     ?>
+                    <span class="status-text <?= $statusClass ?>"><?= $statusText ?></span>
                 </p>
             </div>
 
@@ -317,59 +324,6 @@ $nav_links = [
             document.getElementById('activity_id_field').value = activityId;
             document.getElementById('complete-activity-form').submit();
         }
-    }
-
-    // Your existing beneficiaries summary script (unchanged)
-    const rawValue = <?= json_encode($project['beneficiaries_json'] ?? '') ?>;
-
-    const beneficiariesSpan = document.getElementById('view-beneficiaries');
-
-    if (beneficiariesSpan) {
-        let summary = 'None added';
-        
-        if (rawValue && rawValue.trim() !== '') {
-            let parsed = [];
-            
-            try {
-                parsed = JSON.parse(rawValue);
-            } catch (e) {
-                console.log('Not valid JSON, treating as comma-separated string:', rawValue);
-                parsed = rawValue.split(',').map(item => ({ type: item.trim() }));
-            }
-
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                let totalMale = 0;
-                let totalFemale = 0;
-                let parts = [];
-
-                parsed.forEach(item => {
-                    const typeText = (item.type || item || '').trim();
-                    const male   = Number(item.male   || 0);
-                    const female = Number(item.female || 0);
-
-                    if (typeText) {
-                        if (male > 0 || female > 0) {
-                            parts.push(`${typeText}: ${male} male, ${female} female`);
-                            totalMale += male;
-                            totalFemale += female;
-                        } else {
-                            parts.push(typeText);
-                        }
-                    }
-                });
-
-                if (parts.length > 0) {
-                    summary = parts.join(' | ');
-                    if (totalMale + totalFemale > 0) {
-                        summary += ` | Total: ${totalMale + totalFemale}`;
-                    }
-                }
-            }
-        }
-
-        beneficiariesSpan.textContent = summary;
-    } else {
-        console.warn('Beneficiaries span not found');
     }
     </script>
 
