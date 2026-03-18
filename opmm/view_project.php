@@ -17,6 +17,7 @@ if (!$id || !is_numeric($id)) {
 }
 
 try {
+    // Fetch project
     $stmt = $pdo->prepare("
         SELECT program_id, project_title, implementation_start, implementation_end,
                type_of_extension_service_agenda, sdg_goals,
@@ -32,10 +33,12 @@ try {
         exit;
     }
 
+    // Fetch parent program title
     $progStmt = $pdo->prepare("SELECT title FROM program_entries WHERE id = ?");
     $progStmt->execute([$project['program_id']]);
     $program = $progStmt->fetch(PDO::FETCH_ASSOC);
 
+    // Fetch all activities
     $actStmt = $pdo->prepare("
         SELECT id, activity_name, implementation_start, implementation_end, status
         FROM activity_entries
@@ -53,7 +56,7 @@ try {
         }
     }
 
-    // Handle POST for completing activity
+    // Handle POST: complete an activity
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete_activity'])) {
         $activity_id = (int)($_POST['activity_id'] ?? 0);
 
@@ -61,7 +64,9 @@ try {
             $error = 'Invalid activity ID.';
         } else {
             try {
-                // Update activity to completed
+                $pdo->beginTransaction();
+
+                // 1. Mark the activity as completed
                 $stmt = $pdo->prepare("
                     UPDATE activity_entries 
                     SET status = 'completed', 
@@ -70,7 +75,7 @@ try {
                 ");
                 $stmt->execute([$activity_id, $id]);
 
-                // Re-check incomplete count AFTER update
+                // 2. Re-count remaining active activities
                 $recheck = $pdo->prepare("
                     SELECT COUNT(*) 
                     FROM activity_entries 
@@ -79,7 +84,7 @@ try {
                 $recheck->execute([$id]);
                 $newIncomplete = $recheck->fetchColumn();
 
-                // If zero left → auto-complete project
+                // 3. If zero left → auto-complete the project
                 if ($newIncomplete === 0) {
                     $projStmt = $pdo->prepare("
                         UPDATE project_entries 
@@ -90,9 +95,12 @@ try {
                     $projStmt->execute([$id]);
                 }
 
+                $pdo->commit();
+
                 header("Location: view_project.php?id=$id&success=activity_completed");
                 exit;
             } catch (PDOException $e) {
+                $pdo->rollBack();
                 $error = 'Failed to complete activity: ' . $e->getMessage();
             }
         }
@@ -120,7 +128,6 @@ $nav_links = [
     <link rel="stylesheet" href="../css/style.css">
 
     <style>
-        /* Your original styles - unchanged */
         .quarter-item {
             display: flex;
             align-items: center;
@@ -190,14 +197,13 @@ $nav_links = [
             border-color: #059669 !important;
         }
 
-        /* Status text colors only (no background/pill) */
         .status-text {
             font-weight: 600;
-            font-size: 1rem; /* consistent with view.php */
+            font-size: 1rem;
         }
 
-        .status-active    { color: #3b82f6; } /* blue (now matches view.php) */
-        .status-completed { color: #10b981; } /* green */
+        .status-active    { color: #3b82f6; }
+        .status-completed { color: #10b981; }
     </style>
 </head>
 
@@ -239,9 +245,7 @@ $nav_links = [
                             $total += $m + $f;
                         }
                         $summary = implode(' | ', $parts);
-                        if ($total > 0) {
-                            $summary .= " | Total: $total";
-                        }
+                        if ($total > 0) $summary .= " | Total: $total";
                         echo $summary;
                     } else {
                         echo 'None added';
@@ -287,7 +291,7 @@ $nav_links = [
 
                                     <?php if ($activity['status'] === 'active'): ?>
                                         <button class="action-icon complete-icon-btn" 
-                                                onclick="confirmCompleteActivity(<?= $activity['id'] ?>)"
+                                                onclick="confirmCompleteActivity(<?= $activity['id'] ?>, <?= $incompleteCount ?>)"
                                                 title="Mark as Completed">
                                             <span class="material-icons">check_circle</span>
                                         </button>
@@ -312,10 +316,9 @@ $nav_links = [
     </form>
 
     <script>
-    function confirmCompleteActivity(activityId) {
-        const incompleteCount = <?= $incompleteCount ?>;
-
+    function confirmCompleteActivity(activityId, incompleteCount) {
         let message = "Mark this activity as completed?";
+
         if (incompleteCount === 1) {
             message = "This is the last incomplete activity. Completing it will also mark the entire Project as Completed. Are you sure?";
         }
