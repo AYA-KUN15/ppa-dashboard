@@ -23,9 +23,14 @@ $stmt = $pdo->prepare("
 $stmt->execute([$program_id]);
 $parent = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$parent) {
-    die("Parent program not found.");
+if (!$parent || !$parent['duration_start']) {
+    die("Parent program not found or missing start date.");
 }
+
+// Calculate latest allowed project end date: Dec 31 of (start year + 2)
+$programStart = $parent['duration_start'];
+$startYear = date('Y', strtotime($programStart));
+$threeYearEnd = ($startYear + 2) . '-12-31';
 
 // Hardcoded full lists (reference/whitelist)
 $fullTypeOptions = [
@@ -118,6 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please fill all required fields (at least one beneficiary with total > 0).';
         } elseif (strtotime($impl_end) < strtotime($impl_start)) {
             $error = 'End date cannot be before start date.';
+        } elseif (strtotime($impl_start) < strtotime($programStart) || strtotime($impl_end) > strtotime($threeYearEnd)) {
+            $error = "Project implementation must be within the first 3 full calendar years of the program (up to December 31, " . ($startYear + 2) . ").";
         } else {
             $_SESSION['pending_project'] = [
                 'program_id' => $program_id,
@@ -296,23 +303,23 @@ $nav_links = [
                 </div>
 
                 <div class="form-group full-span">
-                    <label>Implementation Period * (within program duration)</label>
+                    <label>Implementation Period * (first 3 full calendar years of program)</label>
                     <div class="date-group">
                         <input type="date" name="implementation_start"
                                value="<?= htmlspecialchars($formData['implementation_start'] ?? '') ?>"
-                               min="<?= htmlspecialchars($parent['duration_start']) ?>"
-                               max="<?= htmlspecialchars($parent['duration_end']) ?>"
+                               min="<?= htmlspecialchars($programStart) ?>"
+                               max="<?= htmlspecialchars($threeYearEnd) ?>"
                                required>
                         <span>to</span>
                         <input type="date" name="implementation_end"
                                value="<?= htmlspecialchars($formData['implementation_end'] ?? '') ?>"
-                               min="<?= htmlspecialchars($parent['duration_start']) ?>"
-                               max="<?= htmlspecialchars($parent['duration_end']) ?>"
+                               min="<?= htmlspecialchars($programStart) ?>"
+                               max="<?= htmlspecialchars($threeYearEnd) ?>"
                                required>
                     </div>
                     <small class="hint">
-                        Must be within parent program: <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_start']))) ?> – 
-                        <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_end']))) ?>
+                        Must be between <?= htmlspecialchars(date('M d, Y', strtotime($programStart))) ?> 
+                        and December 31, <?= $startYear + 2 ?>
                     </small>
                 </div>
 
@@ -556,20 +563,11 @@ function loadBeneficiaries() {
 
     const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
     let currentEntries = [];
-    try {
-        currentEntries = JSON.parse(currentJson);
-    } catch (e) {
-        console.error("Error parsing current beneficiaries:", e);
-    }
+    try { currentEntries = JSON.parse(currentJson); } catch (e) {}
 
     const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
     let parentEntries = [];
-    try {
-        parentEntries = JSON.parse(parentJson);
-    } catch (e) {
-        console.error("Error parsing parent beneficiaries JSON:", e, parentJson);
-        parentEntries = [];
-    }
+    try { parentEntries = JSON.parse(parentJson); } catch (e) {}
 
     if (!Array.isArray(parentEntries) || parentEntries.length === 0) {
         rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries defined in parent program.</p>';

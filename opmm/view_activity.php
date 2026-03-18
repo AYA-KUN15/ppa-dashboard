@@ -16,7 +16,7 @@ if (!$id || !is_numeric($id)) {
 }
 
 try {
-    // Fetch activity + parent project + grandparent program (for display only, not status)
+    // Fetch activity + parent project + grandparent program (for display only)
     $stmt = $pdo->prepare("
         SELECT 
             a.id, a.activity_name, a.implementation_start, a.implementation_end,
@@ -38,7 +38,7 @@ try {
         exit;
     }
 
-    // Use REAL activity status only (no inheritance override)
+    // Use REAL activity status only
     $status = strtolower($activity['activity_status'] ?? 'active');
 
     // Uploaded images
@@ -62,7 +62,6 @@ $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => false],
     ['url' => '/opmm/view_project.php?id=' . $activity['project_id'], 'label' => 'Project', 'active' => false],
 ];
-
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -75,6 +74,7 @@ $nav_links = [
     <title>View Activity - <?= htmlspecialchars($activity['activity_name'] ?? 'Activity') ?></title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
+
     <style>
         .photo-item { position: relative; display: inline-block; }
         .delete-photo-btn {
@@ -102,6 +102,15 @@ $nav_links = [
             pointer-events: none !important;
             opacity: 0.7;
         }
+
+        /* Status text colors only (no background/pill) - consistent with other views */
+        .status-text {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .status-active    { color: #3b82f6; } /* blue (now matches view.php / view_project.php) */
+        .status-completed { color: #10b981; } /* green */
     </style>
 </head>
 <body>
@@ -124,12 +133,10 @@ $nav_links = [
                 <p><strong>Beneficiaries:</strong> <span id="view-beneficiaries"></span></p>
                 <p><strong>Status:</strong> 
                     <?php
-                    if ($status !== 'active') {
-                        echo '<span style="color: #10b981; font-weight: 600;">Completed</span>';
-                    } else {
-                        echo '<span style="color: #c8102e; font-weight: 600;">Active</span>';
-                    }
+                    $statusClass = ($status === 'completed') ? 'status-completed' : 'status-active';
+                    $statusText  = ($status === 'completed') ? 'Completed' : 'Active';
                     ?>
+                    <span class="status-text <?= $statusClass ?>"><?= $statusText ?></span>
                 </p>
             </div>
 
@@ -175,7 +182,7 @@ $nav_links = [
     </main>
 
     <script>
-    // Beneficiaries summary
+    // Beneficiaries summary (unchanged)
     const rawJson = <?= json_encode($activity['beneficiaries_json'] ?? '[]') ?>;
     let beneficiariesJson = [];
 
@@ -223,7 +230,7 @@ $nav_links = [
         console.warn('Beneficiaries span element not found in view_activity');
     }
 
-    // Delete photo handler
+    // Delete photo handler (unchanged)
     document.querySelectorAll('.delete-photo-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             if (confirm('Delete this photo? This cannot be undone.')) {

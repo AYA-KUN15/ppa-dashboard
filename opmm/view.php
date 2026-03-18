@@ -45,15 +45,21 @@ try {
     $projectsList = $projListStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // ────────────────────────────────────────────────
-    // Recalculate and update program status (your exact rules)
+    // Recalculate and update program status
+    // FIXED: 'completed' now requires duration ended + ALL projects completed
     // ────────────────────────────────────────────────
     $today = date('Y-m-d');
 
     $stmt = $pdo->prepare("
         UPDATE program_entries p
         SET p.status = CASE
-            -- 1. Duration fully ended → Completed (highest priority)
-            WHEN p.duration_end IS NOT NULL AND p.duration_end < CURDATE() THEN 'completed'
+            -- 1. Duration fully ended AND all projects completed → Completed (highest priority)
+            WHEN p.duration_end IS NOT NULL 
+                 AND p.duration_end < CURDATE()
+                 AND NOT EXISTS (
+                     SELECT 1 FROM project_entries pr 
+                     WHERE pr.program_id = p.id AND pr.status != 'completed'
+                 ) THEN 'completed'
 
             -- 2. All projects completed AND 3+ years passed → M&E Phase
             WHEN (
@@ -65,7 +71,7 @@ try {
                 AND DATE_ADD(p.duration_start, INTERVAL 3 YEAR) < CURDATE()
             ) THEN 'mae_phase'
 
-            -- 3. 3+ years passed AND any project not completed → Overdue
+            -- 3. 3+ years passed AND any incomplete project → Overdue
             WHEN p.duration_start IS NOT NULL
                  AND DATE_ADD(p.duration_start, INTERVAL 3 YEAR) < CURDATE()
                  AND EXISTS (
@@ -86,10 +92,7 @@ try {
     $stmt->execute([$id]);
     $program['status'] = $stmt->fetchColumn();
 
-    // ────────────────────────────────────────────────
-    // Cascade status only to activities under ACTIVE projects
-    // (Do NOT force projects back to active - prevents un-completing)
-    // ────────────────────────────────────────────────
+    // Cascade to activities under active projects only (safe, no project reset)
     $pdo->prepare("
         UPDATE activity_entries a
         INNER JOIN project_entries pr ON a.project_id = pr.id
@@ -121,6 +124,7 @@ $nav_links = [
     <link rel="stylesheet" href="../css/style.css">
 
     <style>
+        /* Your existing styles here - unchanged */
         .quarter-item {
             display: flex;
             align-items: center;
@@ -190,7 +194,7 @@ $nav_links = [
         /* Status text colors only (no background/pill) */
         .status-text {
             font-weight: 600;
-            font-size: 1rem; /* same size as other labels */
+            font-size: 1rem;
         }
 
         .status-active    { color: #3b82f6; } /* blue   */

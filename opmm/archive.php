@@ -1,5 +1,5 @@
 <?php
-// archive.php - Monitoring & Evaluation Phase (non-active programs)
+// archive.php - Monitoring & Evaluation Phase (overdue + mae_phase only)
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -14,7 +14,7 @@ try {
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals, status
         FROM program_entries
-        WHERE status != 'active'
+        WHERE status IN ('overdue', 'mae_phase')
         ORDER BY updated_at DESC, title ASC
     ");
     $stmt->execute();
@@ -109,7 +109,7 @@ $nav_links = [
             background: rgba(200, 16, 46, 0.1);
         }
 
-        /* Completed Programs button - red, bold, longer, smaller font */
+        /* Completed Programs button - your style */
         .action-btn.completed-programs {
             display: inline-block;
             padding: 12px 32px;
@@ -118,7 +118,7 @@ $nav_links = [
             border-radius: 6px;
             text-decoration: none;
             font-weight: 600;
-            font-size: 1.05rem; /* smaller to fit better */
+            font-size: 1.05rem;
             min-width: 240px;
             text-align: center;
             transition: background 0.2s;
@@ -126,6 +126,13 @@ $nav_links = [
 
         .action-btn.completed-programs:hover {
             background: #a50d24;
+        }
+
+        /* Text wrap */
+        .quarter-btn-title,
+        .quarter-btn-subtitle {
+            white-space: normal;
+            word-break: break-word;
         }
     </style>
 </head>
@@ -136,35 +143,35 @@ $nav_links = [
 
         <?php if (!empty($error)): ?>
             <p class="error"><?= htmlspecialchars($error) ?></p>
-        <?php elseif (empty($programs)): ?>
-            <p>No programs in Monitoring & Evaluation phase yet.</p>
         <?php else: ?>
-            <!-- Completed Programs button at the top -->
+            <!-- Completed Programs button - always visible -->
             <div style="margin-bottom: 24px; text-align: left;">
                 <a href="complete.php" class="action-btn completed-programs">Completed Programs</a>
             </div>
 
-            <div class="quarter-scroll-container">
-                <div class="quarter-buttons">
-                    <?php foreach ($programs as $program): ?>
-                        <div class="quarter-item">
-                            <!-- Main card button goes to VIEW page -->
-                            <button class="quarter-btn mae-phase"
-                                    onclick="window.location.href='../opmm/view.php?mode=program&id=<?= $program['id'] ?>'">
-                                <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
-                                <span class="quarter-btn-subtitle">M&E Phase</span>
-                            </button>
+            <?php if (empty($programs)): ?>
+                <p>No programs in Monitoring & Evaluation phase yet.</p>
+            <?php else: ?>
+                <div class="quarter-scroll-container">
+                    <div class="quarter-buttons">
+                        <?php foreach ($programs as $program): ?>
+                            <div class="quarter-item">
+                                <button class="quarter-btn mae-phase"
+                                        onclick="window.location.href='../opmm/view.php?mode=program&id=<?= $program['id'] ?>'">
+                                    <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
+                                    <span class="quarter-btn-subtitle">M&E Phase</span>
+                                </button>
 
-                            <!-- Pencil icon goes to EDIT page -->
-                            <button class="action-icon edit-icon-btn"
-                                    onclick="window.location.href='../opmm/edit.php?mode=program&id=<?= $program['id'] ?>'"
-                                    title="Edit program">
-                                <span class="material-icons">edit</span>
-                            </button>
-                        </div>
-                    <?php endforeach; ?>
+                                <button class="action-icon edit-icon-btn"
+                                        onclick="window.location.href='../opmm/edit.php?mode=program&id=<?= $program['id'] ?>'"
+                                        title="Edit program">
+                                    <span class="material-icons">edit</span>
+                                </button>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
-            </div>
+            <?php endif; ?>
         <?php endif; ?>
     </main>
 

@@ -39,9 +39,14 @@ $pStmt = $pdo->prepare("
 $pStmt->execute([$program_id]);
 $parent = $pStmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$parent) {
-    die("Parent program not found.");
+if (!$parent || !$parent['duration_start']) {
+    die("Parent program not found or missing start date.");
 }
+
+// Calculate latest allowed project end date: Dec 31 of (start year + 2)
+$programStart = $parent['duration_start'];
+$startYear = date('Y', strtotime($programStart));
+$threeYearEnd = ($startYear + 2) . '-12-31';
 
 // Hardcoded full lists (same as add_project.php)
 $fullTypeOptions = [
@@ -60,23 +65,12 @@ $fullTypeOptions = [
 ];
 
 $fullSdgOptions = [
-    "No Poverty",
-    "Zero Hunger",
-    "Good Health and Well-Being",
-    "Quality Education",
-    "Gender Equality",
-    "Clean Water and Sanitation",
-    "Affordable and Clean Energy",
-    "Decent Work and Economic Growth",
-    "Industry, Innovation and Infrastructure",
-    "Reduced Inequalities",
-    "Sustainable Cities and Communities",
-    "Responsible Consumption and Production",
-    "Climate Action",
-    "Life Below Water",
-    "Life on Land",
-    "Peace, Justice and Strong Institutions",
-    "Partnerships for the Goals"
+    "No Poverty", "Zero Hunger", "Good Health and Well-Being", "Quality Education",
+    "Gender Equality", "Clean Water and Sanitation", "Affordable and Clean Energy",
+    "Decent Work and Economic Growth", "Industry, Innovation and Infrastructure",
+    "Reduced Inequalities", "Sustainable Cities and Communities",
+    "Responsible Consumption and Production", "Climate Action", "Life Below Water",
+    "Life on Land", "Peace, Justice and Strong Institutions", "Partnerships for the Goals"
 ];
 
 $error = '';
@@ -104,6 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill all required fields (at least one beneficiary with total > 0).';
     } elseif (strtotime($impl_end) < strtotime($impl_start)) {
         $error = 'End date cannot be before start date.';
+    } elseif (strtotime($impl_start) < strtotime($programStart) || strtotime($impl_end) > strtotime($threeYearEnd)) {
+        $error = "Project must be implemented within the first 3 full calendar years of the program (up to December 31, " . ($startYear + 2) . ").";
     } else {
         try {
             $stmt = $pdo->prepare("
@@ -243,23 +239,23 @@ $nav_links = [
             </div>
 
             <div class="form-group full-span">
-                <label>Implementation Period * (must be within parent program duration)</label>
+                <label>Implementation Period * (first 3 full calendar years of program)</label>
                 <div class="date-group">
                     <input type="date" name="implementation_start"
                            value="<?= htmlspecialchars($entry['implementation_start'] ?? '') ?>"
-                           min="<?= htmlspecialchars($parent['duration_start']) ?>"
-                           max="<?= htmlspecialchars($parent['duration_end']) ?>"
+                           min="<?= htmlspecialchars($programStart) ?>"
+                           max="<?= htmlspecialchars($threeYearEnd) ?>"
                            required>
                     <span>to</span>
                     <input type="date" name="implementation_end"
                            value="<?= htmlspecialchars($entry['implementation_end'] ?? '') ?>"
-                           min="<?= htmlspecialchars($parent['duration_start']) ?>"
-                           max="<?= htmlspecialchars($parent['duration_end']) ?>"
+                           min="<?= htmlspecialchars($programStart) ?>"
+                           max="<?= htmlspecialchars($threeYearEnd) ?>"
                            required>
                 </div>
                 <small class="hint">
-                    Must be between <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_start']))) ?> 
-                    and <?= htmlspecialchars(date('M d, Y', strtotime($parent['duration_end']))) ?>
+                    Allowed range: <?= htmlspecialchars(date('M d, Y', strtotime($programStart))) ?> – 
+                    December 31, <?= $startYear + 2 ?>
                 </small>
             </div>
 
@@ -471,7 +467,6 @@ function restoreCheckedState(type) {
     const hidden = document.getElementById(type + '-hidden');
     const currentRaw = hidden?.value?.trim() || '';
 
-    // Triple normalization - very forgiving
     const norm1 = currentRaw.toLowerCase().replace(/\s+/g, '');
     const norm2 = currentRaw.toLowerCase().replace(/[\s,]+/g, '');
     const norm3 = currentRaw.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');

@@ -11,7 +11,7 @@ require_once '../config/db.php';
 
 try {
     $stmt = $pdo->prepare("
-        SELECT id, title, duration_end
+        SELECT id, title
         FROM program_entries
         WHERE status = 'completed' 
           AND duration_end < CURDATE()
@@ -71,6 +71,7 @@ $nav_links = [
         .quarter-btn-subtitle {
             font-size: 0.9rem;
             color: #6b7280;
+            min-height: 1.2em; /* keeps spacing even when empty */
         }
 
         /* Green styling for Completed programs */
@@ -85,9 +86,8 @@ $nav_links = [
             border-color: #059669 !important;
         }
 
-        /* Ensure text wraps */
-        .quarter-btn-title,
-        .quarter-btn-subtitle {
+        /* Text wrap */
+        .quarter-btn-title {
             white-space: normal;
             word-break: break-word;
         }
@@ -107,13 +107,10 @@ $nav_links = [
                 <div class="quarter-buttons">
                     <?php foreach ($completed as $program): ?>
                         <div class="quarter-item">
-                            <!-- Main card button goes to VIEW page (read-only) -->
                             <button class="quarter-btn completed"
                                     onclick="window.location.href='../opmm/view.php?mode=program&id=<?= $program['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($program['title']) ?></span>
-                                <span class="quarter-btn-subtitle">
-                                    Completed – Ended <?= date('M d, Y', strtotime($program['duration_end'])) ?>
-                                </span>
+                                <span class="quarter-btn-subtitle"></span> <!-- blank as requested -->
                             </button>
                         </div>
                     <?php endforeach; ?>
