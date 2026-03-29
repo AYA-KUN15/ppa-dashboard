@@ -14,6 +14,7 @@ if (!$project_id || !is_numeric($project_id)) {
     exit;
 }
 
+// Fetch parent project
 $stmt = $pdo->prepare("
     SELECT project_title, implementation_start, implementation_end,
            type_of_extension_service_agenda, sdg_goals,
@@ -21,16 +22,37 @@ $stmt = $pdo->prepare("
     FROM project_entries WHERE id = ?
 ");
 $stmt->execute([$project_id]);
-$parent = $stmt->fetch(PDO::FETCH_ASSOC);
+$project = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$parent) {
+if (!$project) {
     die("Parent project not found.");
 }
 
-$parentStart = $parent['implementation_start'];
-$parentEnd   = $parent['implementation_end'];
+$projectStart = $project['implementation_start'];
+$projectEnd   = $project['implementation_end'];
 
-// Hardcoded full lists (reference/whitelist only)
+// Fetch grandparent program to enforce 3-year limit
+$progStmt = $pdo->prepare("
+    SELECT duration_start
+    FROM program_entries 
+    WHERE id = (SELECT program_id FROM project_entries WHERE id = ?)
+");
+$progStmt->execute([$project_id]);
+$program = $progStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$program || !$program['duration_start']) {
+    die("Grandparent program not found or missing start date.");
+}
+
+$programStart = $program['duration_start'];
+$startYear = date('Y', strtotime($programStart));
+$program3YearEnd = ($startYear + 2) . '-12-31';
+
+// Effective max end date = earlier of project end and program 3-year end
+$effectiveMaxEnd = min(strtotime($projectEnd), strtotime($program3YearEnd));
+$effectiveMaxEnd = date('Y-m-d', $effectiveMaxEnd);
+
+// Hardcoded full lists (reference/whitelist)
 $fullTypeOptions = [
     "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
     "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
@@ -47,23 +69,12 @@ $fullTypeOptions = [
 ];
 
 $fullSdgOptions = [
-    "No Poverty",
-    "Zero Hunger",
-    "Good Health and Well-Being",
-    "Quality Education",
-    "Gender Equality",
-    "Clean Water and Sanitation",
-    "Affordable and Clean Energy",
-    "Decent Work and Economic Growth",
-    "Industry, Innovation and Infrastructure",
-    "Reduced Inequalities",
-    "Sustainable Cities and Communities",
-    "Responsible Consumption and Production",
-    "Climate Action",
-    "Life Below Water",
-    "Life on Land",
-    "Peace, Justice and Strong Institutions",
-    "Partnerships for the Goals"
+    "No Poverty", "Zero Hunger", "Good Health and Well-Being", "Quality Education",
+    "Gender Equality", "Clean Water and Sanitation", "Affordable and Clean Energy",
+    "Decent Work and Economic Growth", "Industry, Innovation and Infrastructure",
+    "Reduced Inequalities", "Sustainable Cities and Communities",
+    "Responsible Consumption and Production", "Climate Action", "Life Below Water",
+    "Life on Land", "Peace, Justice and Strong Institutions", "Partnerships for the Goals"
 ];
 
 $error = '';
@@ -75,7 +86,6 @@ $formData = $_POST; // default: fresh POST
 // If user cancelled from confirmation → load from session
 if (isset($_GET['cancel']) && $_GET['cancel'] === '1' && isset($_SESSION['pending_activity'])) {
     $formData = $_SESSION['pending_activity'];
-    // Map session keys to form field names
     $formData['activity_name']       = $formData['activity_name'] ?? '';
     $formData['type_agenda']         = $formData['type_of_extension_service_agenda'] ?? '';
     $formData['sdg_goals']           = $formData['sdg_goals'] ?? '';
@@ -109,10 +119,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm'])) {
         $error = 'Please fill all required fields (at least one beneficiary with total > 0).';
     } elseif (strtotime($impl_end) < strtotime($impl_start)) {
         $error = 'End date cannot be before start date.';
-    } elseif (strtotime($impl_start) < strtotime($parentStart) || strtotime($impl_end) > strtotime($parentEnd)) {
-        $error = "Activity dates must be within parent project period (" . 
-                 date('M d, Y', strtotime($parentStart)) . " – " . 
-                 date('M d, Y', strtotime($parentEnd)) . ").";
+    } elseif (strtotime($impl_start) < strtotime($projectStart) || 
+              strtotime($impl_end) > strtotime($effectiveMaxEnd)) {
+        $error = "Activity must be completed within both the parent project's duration (" .
+                 date('M d, Y', strtotime($projectStart)) . " – " .
+                 date('M d, Y', strtotime($projectEnd)) . ") " .
+                 "and the first 3 full calendar years of the program (up to " .
+                 date('M d, Y', strtotime($effectiveMaxEnd)) . ").";
     } else {
         $_SESSION['pending_activity'] = [
             'project_id'                  => $project_id,
@@ -431,23 +444,24 @@ $nav_links = [
                 </div>
 
                 <div class="form-group full-span">
-                    <label>Implementation Duration * (within parent project)</label>
+                    <label>Implementation Duration * (within project & first 3 years of program)</label>
                     <div class="date-group">
                         <input type="date" name="implementation_start"
                                value="<?= htmlspecialchars($formData['implementation_start'] ?? '') ?>"
-                               min="<?= htmlspecialchars($parentStart) ?>"
-                               max="<?= htmlspecialchars($parentEnd) ?>"
+                               min="<?= htmlspecialchars($projectStart) ?>"
+                               max="<?= htmlspecialchars($effectiveMaxEnd) ?>"
                                required>
                         <span>to</span>
                         <input type="date" name="implementation_end"
                                value="<?= htmlspecialchars($formData['implementation_end'] ?? '') ?>"
-                               min="<?= htmlspecialchars($parentStart) ?>"
-                               max="<?= htmlspecialchars($parentEnd) ?>"
+                               min="<?= htmlspecialchars($projectStart) ?>"
+                               max="<?= htmlspecialchars($effectiveMaxEnd) ?>"
                                required>
                     </div>
                     <small class="hint">
-                        Must be within parent project: <?= htmlspecialchars(date('M d, Y', strtotime($parentStart))) ?> – 
-                        <?= htmlspecialchars(date('M d, Y', strtotime($parentEnd))) ?>
+                        Must be within parent project (<?= htmlspecialchars(date('M d, Y', strtotime($projectStart))) ?> – 
+                        <?= htmlspecialchars(date('M d, Y', strtotime($projectEnd))) ?>) 
+                        and first 3 full calendar years of program (up to <?= htmlspecialchars(date('M d, Y', strtotime($effectiveMaxEnd))) ?>).
                     </small>
                 </div>
 
@@ -465,7 +479,7 @@ $nav_links = [
             <h2>Select Type of Extension Service Agenda</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                $parentTypeStr = $parent['type_of_extension_service_agenda'] ?? '';
+                $parentTypeStr = $project['type_of_extension_service_agenda'] ?? '';
                 $shown = false;
                 foreach ($fullTypeOptions as $opt):
                     if (stripos($parentTypeStr, $opt) !== false):
@@ -497,7 +511,7 @@ $nav_links = [
             <h2>Select Sustainable Development Goals</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                $parentSdgStr = $parent['sdg_goals'] ?? '';
+                $parentSdgStr = $project['sdg_goals'] ?? '';
                 $shown = false;
                 foreach ($fullSdgOptions as $opt):
                     if (stripos($parentSdgStr, $opt) !== false):
@@ -529,8 +543,8 @@ $nav_links = [
             <h2>Select Offices Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['offices_involved']) {
-                    $offices = explode(', ', $parent['offices_involved']);
+                if ($project['offices_involved']) {
+                    $offices = explode(', ', $project['offices_involved']);
                     foreach ($offices as $o) {
                         $o = trim($o);
                         if ($o !== '') {
@@ -560,8 +574,8 @@ $nav_links = [
             <h2>Select Programs Involved</h2>
             <div style="max-height: 400px; overflow-y: auto; padding: 12px;">
                 <?php
-                if ($parent['programs_involved']) {
-                    $programs = explode(', ', $parent['programs_involved']);
+                if ($project['programs_involved']) {
+                    $programs = explode(', ', $project['programs_involved']);
                     foreach ($programs as $p) {
                         $p = trim($p);
                         if ($p !== '') {
@@ -606,15 +620,14 @@ function openModal(modalId) {
 
     const type = modalId.replace('-modal', '');
     if (['type','sdg','offices','programs'].includes(type)) {
-        setTimeout(() => {
-            restoreCheckedState(type);
-        }, 100);
+        setTimeout(() => restoreCheckedState(type), 100);
+    } else if (type === 'beneficiaries') {
+        setTimeout(loadBeneficiaries, 100);
     }
 }
 
 function openBeneficiariesModal() {
     openModal('beneficiaries-modal');
-    loadBeneficiaries();
 }
 
 function closeModal(modalId) {
@@ -636,12 +649,8 @@ function saveModalSelections(type) {
 
     const display = document.getElementById(displayId);
 
-    if (hidden) {
-        hidden.value = values.join(', ');
-    }
-    if (display) {
-        display.textContent = values.length ? values.join(', ') : 'None';
-    }
+    if (hidden) hidden.value = values.join(', ');
+    if (display) display.textContent = values.length ? values.join(', ') : 'None';
 
     closeModal(type + '-modal');
     syncPreviews();
@@ -673,11 +682,11 @@ function loadBeneficiaries() {
 
     const currentJson = document.getElementById('beneficiaries-hidden').value || '[]';
     let currentEntries = [];
-    try { currentEntries = JSON.parse(currentJson); } catch (e) {}
+    try { currentEntries = JSON.parse(currentJson); } catch (e) { console.error("JSON parse error:", e); }
 
-    const parentJson = <?= json_encode($parent['beneficiaries_json'] ?? '[]') ?>;
+    const parentJson = <?= json_encode($project['beneficiaries_json'] ?? '[]') ?>;
     let parentEntries = [];
-    try { parentEntries = JSON.parse(parentJson); } catch (e) {}
+    try { parentEntries = JSON.parse(parentJson); } catch (e) { console.error("Parent JSON parse error:", e); }
 
     if (parentEntries.length === 0) {
         rowsDiv.innerHTML = '<p style="color:#6b7280; text-align:center;">No beneficiaries in parent project.</p>';
@@ -731,8 +740,7 @@ function saveBeneficiaries() {
         female: b.female
     }));
 
-    const hidden = document.getElementById('beneficiaries-hidden');
-    if (hidden) hidden.value = JSON.stringify(selected);
+    document.getElementById('beneficiaries-hidden').value = JSON.stringify(selected);
 
     const preview = document.getElementById('selected-beneficiaries');
     if (preview) {
@@ -766,8 +774,7 @@ function syncPreviews() {
     if (benHidden && benDisplay) {
         try {
             const data = JSON.parse(benHidden.value || '[]');
-            const count = data.length;
-            benDisplay.textContent = count > 0 ? `${count} type(s) selected` : 'None';
+            benDisplay.textContent = data.length > 0 ? `${data.length} type(s) selected` : 'None';
         } catch (e) {
             benDisplay.textContent = 'None';
         }

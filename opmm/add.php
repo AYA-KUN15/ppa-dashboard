@@ -161,7 +161,7 @@ $nav_links = [
                                     $total += $m + $f;
                                 }
                                 echo implode(' | ', $parts);
-                                if ($total > 0) echo " | <strong>Total:</strong> $total";
+                                if ($total > 0) echo " | Total: $total";
                             } else {
                                 echo 'None';
                             }
