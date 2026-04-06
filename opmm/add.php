@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -7,16 +8,19 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $error = '';
 $show_confirmation = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['confirm']) && isset($_SESSION['pending_program'])) {
+    // Final save: user confirmed activity, now insert into database
+if (isset($_POST['confirm']) && isset($_SESSION['pending_program'])) {
         $d = $_SESSION['pending_program'];
 
         try {
-            $stmt = $pdo->prepare("
+            // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
                 INSERT INTO program_entries (
                     title, location, duration_start, duration_end,
                     type_of_extension_service_agenda, sdg_goals, offices_involved,
@@ -507,6 +511,7 @@ $nav_links = [
     </div>
 
     <script>
+// Opens modal UI and restores previously selected values
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
     document.body.classList.add('modal-open');
@@ -517,6 +522,7 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-open');
 }
 
+// Save selected checkbox values into hidden inputs (used for form submission)
 function saveModalSelections(type) {
     const modal = document.getElementById(type + '-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
@@ -586,6 +592,7 @@ function addBeneficiaryRow(type = '', male = 0, female = 0) {
     container.appendChild(row);
 }
 
+// Save selected beneficiaries as JSON string into hidden input for backend processing
 function saveBeneficiaries() {
     const rows = document.querySelectorAll('#beneficiary-rows .beneficiary-row');
     const data = [];

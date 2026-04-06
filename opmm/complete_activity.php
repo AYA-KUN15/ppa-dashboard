@@ -1,6 +1,7 @@
 <?php
 // complete.php - Only for activities now
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header('Content-Type: application/json');
@@ -9,6 +10,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 header('Content-Type: application/json');
 
@@ -26,7 +28,8 @@ if (!$id || !is_numeric($id) || $mode !== 'activity') {
 }
 
 try {
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         UPDATE activity_entries 
         SET status = 'completed', updated_at = NOW() 
         WHERE id = ? AND status != 'completed'

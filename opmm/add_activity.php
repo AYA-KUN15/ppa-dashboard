@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -7,14 +8,17 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $project_id = $_GET['project_id'] ?? null;
+// Get project ID from URL to link this activity to its parent project
 if (!$project_id || !is_numeric($project_id)) {
     header("Location: list.php");
     exit;
 }
 
 // Fetch parent project
+// Prepare SQL query safely (prevents SQL injection)
 $stmt = $pdo->prepare("
     SELECT project_title, implementation_start, implementation_end,
            type_of_extension_service_agenda, sdg_goals,
@@ -23,6 +27,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$project_id]);
 $project = $stmt->fetch(PDO::FETCH_ASSOC);
+// Fetch parent project details (used to restrict activity inputs like dates and selectable options)
 
 if (!$project) {
     die("Parent project not found.");
@@ -46,10 +51,13 @@ if (!$program || !$program['duration_start']) {
 
 $programStart = $program['duration_start'];
 $startYear = date('Y', strtotime($programStart));
+// Compute program 3-year limit (activities must fall within first 3 years of program)
 $program3YearEnd = ($startYear + 2) . '-12-31';
 
 // Effective max end date = earlier of project end and program 3-year end
+// Determine maximum allowed activity end date (cannot exceed project end OR program 3-year limit)
 $effectiveMaxEnd = min(strtotime($projectEnd), strtotime($program3YearEnd));
+// Determine maximum allowed activity end date (cannot exceed project end OR program 3-year limit)
 $effectiveMaxEnd = date('Y-m-d', $effectiveMaxEnd);
 
 // Hardcoded full lists (reference/whitelist)
@@ -96,6 +104,7 @@ if (isset($_GET['cancel']) && $_GET['cancel'] === '1' && isset($_SESSION['pendin
     $formData['implementation_end']   = $formData['implementation_end'] ?? '';
 }
 
+// Handle form submission (before confirmation step)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm'])) {
     $activity_name   = trim($_POST['activity_name'] ?? '');
     $type_agenda     = trim($_POST['type_agenda'] ?? '');
@@ -107,8 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm'])) {
     $impl_end        = $_POST['implementation_end'] ?? '';
 
     $benefData = json_decode($beneficiaries, true) ?? [];
+// Decode beneficiaries JSON into array for validation and counting
 
     $totalBenef = 0;
+// Calculate total beneficiaries (male + female) to ensure at least one valid entry
     foreach ($benefData as $b) {
         $totalBenef += ($b['male'] ?? 0) + ($b['female'] ?? 0);
     }
@@ -127,7 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm'])) {
                  "and the first 3 full calendar years of the program (up to " .
                  date('M d, Y', strtotime($effectiveMaxEnd)) . ").";
     } else {
-        $_SESSION['pending_activity'] = [
+        // Store validated activity temporarily in session for confirmation page
+$_SESSION['pending_activity'] = [
             'project_id'                  => $project_id,
             'activity_name'               => $activity_name,
             'implementation_start'        => $impl_start,
@@ -142,11 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm'])) {
     }
 }
 
+// Final save: user confirmed activity, now insert into database
 if (isset($_POST['confirm']) && isset($_SESSION['pending_activity'])) {
     $d = $_SESSION['pending_activity'];
 
     try {
-        $stmt = $pdo->prepare("
+        // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
             INSERT INTO activity_entries (
                 project_id, activity_name, implementation_start, implementation_end,
                 type_of_extension_service_agenda, sdg_goals,
@@ -614,6 +628,7 @@ $nav_links = [
     <script>
 let beneficiariesData = [];
 
+// Opens modal UI and restores previously selected values
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
     document.body.classList.add('modal-open');
@@ -635,6 +650,7 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-open');
 }
 
+// Save selected checkbox values into hidden inputs (used for form submission)
 function saveModalSelections(type) {
     const modal = document.getElementById(type + '-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
@@ -656,6 +672,7 @@ function saveModalSelections(type) {
     syncPreviews();
 }
 
+// Restore previously selected values when reopening modal (prevents losing selections)
 function restoreCheckedState(type) {
     const modal = document.getElementById(type + '-modal');
     const hidden = document.getElementById(type + '-hidden');
@@ -676,6 +693,7 @@ function restoreCheckedState(type) {
     });
 }
 
+// Load beneficiaries from parent project and allow user to select subset for this activity
 function loadBeneficiaries() {
     const rowsDiv = document.getElementById('beneficiary-rows');
     rowsDiv.innerHTML = '';
@@ -733,6 +751,7 @@ function toggleBeneficiary(index, checked) {
     if (beneficiariesData[index]) beneficiariesData[index].selected = checked;
 }
 
+// Save selected beneficiaries as JSON string into hidden input for backend processing
 function saveBeneficiaries() {
     const selected = beneficiariesData.filter(b => b.selected).map(b => ({
         type: b.type,
@@ -752,6 +771,7 @@ function saveBeneficiaries() {
     syncPreviews();
 }
 
+// Sync UI preview labels with hidden input values (ensures user sees selected data)
 function syncPreviews() {
     const pairs = [
         ['type-hidden', 'selected-types'],

@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
@@ -8,6 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $id = $_GET['id'] ?? null;
 
@@ -18,7 +20,8 @@ if (!$id || !is_numeric($id)) {
 
 try {
     // Fetch project
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         SELECT program_id, project_title, implementation_start, implementation_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, beneficiaries_json, status
@@ -27,6 +30,7 @@ try {
     ");
     $stmt->execute([$id]);
     $project = $stmt->fetch(PDO::FETCH_ASSOC);
+// Fetch parent project details (used to restrict activity inputs like dates and selectable options)
 
     if (!$project) {
         header("Location: list.php");
@@ -67,7 +71,8 @@ try {
                 $pdo->beginTransaction();
 
                 // 1. Mark the activity as completed
-                $stmt = $pdo->prepare("
+                // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
                     UPDATE activity_entries 
                     SET status = 'completed', 
                         updated_at = NOW() 

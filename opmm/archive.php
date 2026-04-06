@@ -1,6 +1,7 @@
 <?php
 // archive.php - Monitoring & Evaluation Phase (overdue + mae_phase only)
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -8,9 +9,11 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 try {
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals, status
         FROM program_entries

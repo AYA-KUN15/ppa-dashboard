@@ -1,6 +1,7 @@
 <?php
 // list.php - Program List (only active programs; completed go to archive.php / M&E Phase)
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -8,6 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 try {
     $where = "WHERE status = 'active'";
@@ -37,7 +39,8 @@ try {
         $where
         $orderBy
     ";
-    $stmt = $pdo->prepare($query);
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare($query);
     $stmt->execute($params);
     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -289,6 +292,7 @@ title="Edit program">
 
 <script src="../js/dashboard.js"></script>
 <script>
+// Opens modal UI and restores previously selected values
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
     document.body.classList.add('modal-open');

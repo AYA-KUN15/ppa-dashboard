@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
@@ -8,6 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $id = $_GET['id'] ?? null;
 $mode = $_GET['mode'] ?? 'program';
@@ -19,7 +21,8 @@ if (!$id || !is_numeric($id) || $mode !== 'program') {
 
 try {
     // Fetch program details
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         SELECT id, title, location, duration_start, duration_end,
                type_of_extension_service_agenda, sdg_goals,
                offices_involved, programs_involved, partner_agencies,
@@ -50,7 +53,8 @@ try {
     // ────────────────────────────────────────────────
     $today = date('Y-m-d');
 
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         UPDATE program_entries p
         SET p.status = CASE
             -- 1. Duration fully ended AND all projects completed → Completed (highest priority)
@@ -88,7 +92,8 @@ try {
     $stmt->execute([$id]);
 
     // Refresh program status after update
-    $stmt = $pdo->prepare("SELECT status FROM program_entries WHERE id = ?");
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("SELECT status FROM program_entries WHERE id = ?");
     $stmt->execute([$id]);
     $program['status'] = $stmt->fetchColumn();
 

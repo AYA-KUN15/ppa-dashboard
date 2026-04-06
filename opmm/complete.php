@@ -1,6 +1,7 @@
 <?php
 // complete.php - Fully Completed Programs (ended duration)
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -8,9 +9,11 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 try {
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         SELECT id, title
         FROM program_entries
         WHERE status = 'completed' 

@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -7,6 +8,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $id = $_GET['id'] ?? null;
 
@@ -17,7 +19,8 @@ if (!$id || !is_numeric($id)) {
 
 try {
     // Fetch activity + parent project + grandparent program (for display only)
-    $stmt = $pdo->prepare("
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
         SELECT 
             a.id, a.activity_name, a.implementation_start, a.implementation_end,
             a.type_of_extension_service_agenda, a.sdg_goals,

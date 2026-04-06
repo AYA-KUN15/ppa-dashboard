@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
@@ -8,6 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $id = $_GET['id'] ?? null;
 if (!$id || !is_numeric($id)) {
@@ -15,6 +17,7 @@ if (!$id || !is_numeric($id)) {
     exit;
 }
 
+// Prepare SQL query safely (prevents SQL injection)
 $stmt = $pdo->prepare("
     SELECT program_id, project_title, implementation_start, implementation_end,
            type_of_extension_service_agenda, sdg_goals,
@@ -86,8 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $beneficiaries = trim($_POST['beneficiaries'] ?? '[]');
 
     $benefData = json_decode($beneficiaries, true) ?? [];
+// Decode beneficiaries JSON into array for validation and counting
 
     $totalBenef = 0;
+// Calculate total beneficiaries (male + female) to ensure at least one valid entry
     foreach ($benefData as $b) {
         $totalBenef += ($b['male'] ?? 0) + ($b['female'] ?? 0);
     }
@@ -102,7 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Project must be implemented within the first 3 full calendar years of the program (up to December 31, " . ($startYear + 2) . ").";
     } else {
         try {
-            $stmt = $pdo->prepare("
+            // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
                 UPDATE project_entries 
                 SET project_title = ?, implementation_start = ?, implementation_end = ?,
                     type_of_extension_service_agenda = ?, sdg_goals = ?,
@@ -415,6 +421,7 @@ $nav_links = [
     <script>
 let beneficiariesData = [];
 
+// Opens modal UI and restores previously selected values
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
     document.body.classList.add('modal-open');
@@ -437,6 +444,7 @@ function closeModal(modalId) {
     document.body.classList.remove('modal-open');
 }
 
+// Save selected checkbox values into hidden inputs (used for form submission)
 function saveModalSelections(type) {
     const modal = document.getElementById(type + '-modal');
     const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
@@ -462,6 +470,7 @@ function saveModalSelections(type) {
     checkFormChanges();
 }
 
+// Restore previously selected values when reopening modal (prevents losing selections)
 function restoreCheckedState(type) {
     const modal = document.getElementById(type + '-modal');
     const hidden = document.getElementById(type + '-hidden');
@@ -482,6 +491,7 @@ function restoreCheckedState(type) {
     });
 }
 
+// Load beneficiaries from parent project and allow user to select subset for this activity
 function loadBeneficiaries() {
     const rowsDiv = document.getElementById('beneficiary-rows');
     rowsDiv.innerHTML = '';
@@ -539,6 +549,7 @@ function toggleBeneficiary(index, checked) {
     if (beneficiariesData[index]) beneficiariesData[index].selected = checked;
 }
 
+// Save selected beneficiaries as JSON string into hidden input for backend processing
 function saveBeneficiaries() {
     const selected = beneficiariesData.filter(b => b.selected).map(b => ({
         type: b.type,
@@ -559,6 +570,7 @@ function saveBeneficiaries() {
     checkFormChanges();
 }
 
+// Sync UI preview labels with hidden input values (ensures user sees selected data)
 function syncPreviews() {
     const pairs = [
         ['type-hidden', 'selected-types'],

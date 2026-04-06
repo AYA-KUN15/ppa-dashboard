@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
@@ -7,6 +8,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request']);
@@ -22,7 +24,8 @@ if (!$doc_id || !$activity_id || !is_numeric($doc_id) || !is_numeric($activity_i
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT image_path FROM activity_documents WHERE id = ? AND activity_id = ?");
+    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("SELECT image_path FROM activity_documents WHERE id = ? AND activity_id = ?");
     $stmt->execute([$doc_id, $activity_id]);
     $doc = $stmt->fetch(PDO::FETCH_ASSOC);
 

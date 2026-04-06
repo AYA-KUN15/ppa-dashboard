@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
@@ -8,6 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $id = $_GET['id'] ?? null;
 if (!$id || !is_numeric($id)) {
@@ -15,6 +17,7 @@ if (!$id || !is_numeric($id)) {
     exit;
 }
 
+// Prepare SQL query safely (prevents SQL injection)
 $stmt = $pdo->prepare("
     SELECT title, location, duration_start, duration_end,
            type_of_extension_service_agenda, sdg_goals, offices_involved,
@@ -92,7 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill all required fields. Duration end must be December 31 of the year +5 from start year.';
     } else {
         try {
-            $stmt = $pdo->prepare("
+            // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("
                 UPDATE program_entries
                 SET title = ?, location = ?, duration_start = ?, duration_end = ?,
                     type_of_extension_service_agenda = ?, sdg_goals = ?, offices_involved = ?,
@@ -354,7 +358,8 @@ $nav_links = [
         }
     }
 
-    function openModal(modalId) {
+    // Opens modal UI and restores previously selected values
+function openModal(modalId) {
         document.getElementById(modalId).classList.add('active');
         document.body.classList.add('modal-open');
 
@@ -373,7 +378,8 @@ $nav_links = [
         document.body.classList.remove('modal-open');
     }
 
-    function saveModalSelections(type) {
+    // Save selected checkbox values into hidden inputs (used for form submission)
+function saveModalSelections(type) {
         const modal = document.getElementById(type + '-modal');
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
         const values = Array.from(checkboxes).map(cb => cb.value.trim());
@@ -397,7 +403,8 @@ $nav_links = [
         }, 50);
     }
 
-    function restoreCheckedState(type) {
+    // Restore previously selected values when reopening modal (prevents losing selections)
+function restoreCheckedState(type) {
         const modal = document.getElementById(type + '-modal');
         const hidden = document.getElementById(type + '-hidden');
         const currentRaw = hidden?.value?.trim() || '';
@@ -431,7 +438,8 @@ $nav_links = [
         container.appendChild(row);
     }
 
-    function saveBeneficiaries(closeAfter = true) {
+    // Save selected beneficiaries as JSON string into hidden input for backend processing
+function saveBeneficiaries(closeAfter = true) {
         const rows = document.querySelectorAll('#beneficiary-rows .beneficiary-row');
         const data = [];
         rows.forEach(row => {
@@ -463,7 +471,8 @@ $nav_links = [
         }
     }
 
-    function loadBeneficiaries() {
+    // Load beneficiaries from parent project and allow user to select subset for this activity
+function loadBeneficiaries() {
         const rowsDiv = document.getElementById('beneficiary-rows');
         rowsDiv.innerHTML = '';
 
@@ -482,7 +491,8 @@ $nav_links = [
         }
     }
 
-    function syncPreviews() {
+    // Sync UI preview labels with hidden input values (ensures user sees selected data)
+function syncPreviews() {
         const fields = [
             { h: 'type-hidden', d: 'selected-types' },
             { h: 'sdg-hidden', d: 'selected-sdgs' },

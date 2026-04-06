@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Start session: used for authentication and temporarily storing form data (e.g., pending activity before confirmation)
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../login.php");
@@ -7,6 +8,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 }
 
 require_once '../config/db.php';
+// Load database connection (PDO instance)
 
 $id = $_GET['id'] ?? null;
 
@@ -17,6 +19,7 @@ if (!$id || !is_numeric($id)) {
 }
 
 // Fetch activity name
+// Prepare SQL query safely (prevents SQL injection)
 $stmt = $pdo->prepare("SELECT activity_name FROM activity_entries WHERE id = ?");
 $stmt->execute([$id]);
 $activity = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -89,9 +92,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($error)) {
                 $newName = uniqid('doc_') . '.' . $fileType;
                 $destPath = $activityUploadDir . $newName;
 
-                if (move_uploaded_file($tmpName, $destPath)) {
+                if (// Move uploaded file from temp storage to activity-specific folder
+move_uploaded_file($tmpName, $destPath)) {
                     $dbPath = "uploads/activity_$id/$newName";
-                    $stmt = $pdo->prepare("INSERT INTO activity_documents (activity_id, image_path) VALUES (?, ?)");
+                    // Prepare SQL query safely (prevents SQL injection)
+$stmt = $pdo->prepare("INSERT INTO activity_documents (activity_id, image_path) VALUES (?, ?)");
                     $stmt->execute([$id, $dbPath]);
                     $uploaded++;
                 } else {
