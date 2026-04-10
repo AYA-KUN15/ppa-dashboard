@@ -174,6 +174,7 @@ $stmt = $pdo->prepare("
 $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => false],
     ['url' => '/opmm/view_project.php?id=' . $project_id, 'label' => 'Project', 'active' => false],
+    ['url' => '/opmm/list_proposals.php', 'label' => 'Proposals', 'active' => false],
 ];
 ?>
 

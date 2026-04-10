@@ -114,6 +114,7 @@ $stmt = $pdo->prepare("INSERT INTO activity_documents (activity_id, image_path) 
 $nav_links = [
     ['url' => 'index.php',          'label' => 'Home',    'active' => false],
     ['url' => '/opmm/view_activity.php?id=' . $id, 'label' => 'Activity', 'active' => false],
+    ['url' => '/opmm/list_proposals.php', 'label' => 'Proposals', 'active' => false],
 ];
 
 ?>
