@@ -2,7 +2,7 @@
 // config/db.php
 
 $host = 'localhost';
-$dbname = 'opmm_db';           // we'll create this database soon
+$dbname = 'ppa_db';           // we'll create this database soon
 $username = 'root';
 $password = '';                // default XAMPP – change later for security
 
