@@ -10,11 +10,12 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once 'config/db.php';
 
 // ────────────────────────────────────────────────
-// 1. Calendar: active activities duration bars (unchanged)
+// 1. Calendar Events: Activities + Proposals
 // ────────────────────────────────────────────────
-$events = [];
+$calendarEvents = [];
 
 try {
+    // Activities
     $stmt = $pdo->query("
         SELECT id, activity_name, implementation_start, implementation_end
         FROM activity_entries
@@ -23,7 +24,7 @@ try {
           AND implementation_end IS NOT NULL
     ");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $events[] = [
+        $calendarEvents[] = [
             'title' => $row['activity_name'] . ' (Activity)',
             'start' => $row['implementation_start'],
             'end'   => date('Y-m-d', strtotime($row['implementation_end'] . ' +1 day')),
@@ -34,12 +35,31 @@ try {
             'extendedProps' => ['type' => 'activity']
         ];
     }
+
+    // Proposals
+    $stmt = $pdo->query("
+        SELECT id, title, start_date, end_date
+        FROM research_proposals
+        WHERE start_date IS NOT NULL AND end_date IS NOT NULL
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $calendarEvents[] = [
+            'title' => $row['title'] . ' (Proposal)',
+            'start' => $row['start_date'],
+            'end'   => date('Y-m-d', strtotime($row['end_date'] . ' +1 day')),
+            'url'   => "opmm/view_proposals.php?id={$row['id']}",
+            'color' => '#C8102E',
+            'textColor' => '#FFFFFF',
+            'borderColor' => '#991B1B',
+            'extendedProps' => ['type' => 'proposal']
+        ];
+    }
 } catch (PDOException $e) {
     // silent fail
 }
 
 // ────────────────────────────────────────────────
-// 2. Monitoring Due: only overdue + mae_phase programs
+// 2. Program Monitoring Due
 // ────────────────────────────────────────────────
 $today = date('Y-m-d');
 $duePrograms = [];
@@ -69,84 +89,71 @@ try {
     foreach ($programs as $prog) {
         $freq = strtolower($prog['monitoring_frequency'] ?? '');
         $start = new DateTime($prog['duration_start']);
-        $end   = new DateTime($prog['duration_end']);
-        $yearsInProgress = (int) $start->diff(new DateTime($today))->y;
-        $allProjectsDone = ($prog['total_activities'] > 0 && $prog['completed_activities'] == $prog['total_activities']);
 
         if ($prog['status'] === 'mae_phase') {
-            // M&E Phase: all projects done + 3+ years passed
             $duePrograms[] = [
                 'id'       => $prog['id'],
                 'name'     => $prog['program_title'],
                 'freq'     => ucfirst($freq),
                 'due'      => 'Ongoing Evaluation (M&E Phase)',
                 'overdue'  => false,
-                'days'     => 0,
                 'special'  => 'mae_phase'
             ];
             continue;
         }
 
         if ($prog['status'] === 'overdue') {
-            // Overdue: 3+ years + incomplete projects
             $duePrograms[] = [
                 'id'       => $prog['id'],
                 'name'     => $prog['program_title'],
                 'freq'     => ucfirst($freq),
                 'due'      => 'Overdue (3+ years incomplete)',
                 'overdue'  => true,
-                'days'     => -$yearsInProgress * 365,
                 'special'  => 'overdue'
             ];
             continue;
-        }
-
-        // Fallback: frequency-based for any remaining edge cases (<3 years, active, incomplete)
-        $nextDue = clone $start;
-        switch ($freq) {
-            case 'monthly':
-                $nextDue->modify('first day of next month');
-                break;
-            case 'quarterly':
-                $month = (int)$start->format('n');
-                $nextQ = ceil($month / 3) * 3 + 1;
-                if ($nextQ > 12) $nextQ -= 12;
-                $nextDue->setDate($start->format('Y'), $nextQ, 1);
-                if ($nextDue <= $start) $nextDue->modify('+1 year');
-                break;
-            case 'semi-annually':
-                $month = (int)$start->format('n');
-                $nextHalf = ($month <= 6) ? 7 : 1;
-                $yearAdd = ($month <= 6) ? 0 : 1;
-                $nextDue->setDate($start->format('Y') + $yearAdd, $nextHalf, 1);
-                break;
-            case 'annually':
-                $nextDue->modify('+1 year');
-                $nextDue->setDate($nextDue->format('Y'), $start->format('n'), $start->format('j'));
-                break;
-            default:
-                continue 2;
-        }
-
-        $dueDate = $nextDue->format('Y-m-d');
-        $daysUntil = (new DateTime($dueDate))->diff(new DateTime($today))->days * 
-                     ((new DateTime($dueDate) < new DateTime($today)) ? -1 : 1);
-
-        if ($dueDate <= $today || $daysUntil <= 30) {
-            $duePrograms[] = [
-                'id'       => $prog['id'],
-                'name'     => $prog['program_title'],
-                'freq'     => ucfirst($freq),
-                'due'      => $dueDate,
-                'overdue'  => $dueDate < $today,
-                'days'     => $daysUntil,
-                'special'  => null
-            ];
         }
     }
 } catch (PDOException $e) {
     error_log("Monitoring query error: " . $e->getMessage());
     $duePrograms = [];
+}
+
+// ────────────────────────────────────────────────
+// 3. Proposals Monitoring Due This Period
+// ────────────────────────────────────────────────
+$dueProposals = [];
+
+try {
+    $stmt = $pdo->query("
+        SELECT id, title, start_date, end_date, status
+        FROM research_proposals
+        WHERE end_date IS NOT NULL
+        ORDER BY end_date ASC
+    ");
+    $proposals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($proposals as $prop) {
+        $endDate = new DateTime($prop['end_date']);
+        $daysUntil = (new DateTime($today))->diff($endDate)->days * 
+                     (($endDate < new DateTime($today)) ? -1 : 1);
+
+        $isOverdue = $endDate < new DateTime($today);
+        $isNearEnd = $daysUntil <= 30 && $daysUntil > 0;
+
+        if ($isOverdue || $isNearEnd) {
+            $dueProposals[] = [
+                'id'      => $prop['id'],
+                'title'   => $prop['title'],
+                'end_date'=> $prop['end_date'],
+                'days'    => $daysUntil,
+                'overdue' => $isOverdue
+            ];
+        }
+    }
+} catch (PDOException $e) {
+    error_log("Proposals due query error: " . $e->getMessage());
+    $dueProposals = [];
 }
 
 $nav_links = [
@@ -173,7 +180,7 @@ include 'includes/header.php';
     <style>
         #calendar {
             max-width: 1200px;
-            margin: 40px auto;
+            margin: 30px auto;
             background: #FFFFFF;
             padding: 20px;
             border-radius: 8px;
@@ -181,165 +188,81 @@ include 'includes/header.php';
             border: 1px solid #E5E7EB;
         }
 
-        .fc-toolbar-chunk:first-child {
-            display: flex !important;
-            align-items: center !important;
-            gap: 4px !important;
-            flex-wrap: nowrap !important;
+        /* Compact calendar controls */
+        .calendar-controls {
+            max-width: 1200px;
+            margin: 20px auto 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 20px;
+            font-size: 0.95rem;
         }
-        .fc .fc-button-group {
-            display: flex !important;
-            flex-wrap: nowrap !important;
+
+        .calendar-controls label {
+            font-weight: 500;
+            color: #374151;
+            white-space: nowrap;
         }
-        .fc .fc-toolbar-chunk:first-child .fc-button {
+
+        .calendar-controls select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            min-width: 220px;
+        }
+
+        /* Calendar Toolbar Styling - Today button aligned with < > */
+        .fc-toolbar-chunk {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .fc-toolbar-title {
+            margin: 0 12px !important;
+        }
+
+        .fc-button {
             padding: 6px 10px !important;
-            font-size: 0.9em !important;
-            min-width: 60px !important;
-            line-height: 1.4 !important;
+            font-size: 0.92rem !important;
+            min-width: 44px;
         }
-        .fc .fc-toolbar-chunk:first-child .fc-today-button {
+
+        .fc-today-button {
             background-color: #C8102E !important;
             border-color: #C8102E !important;
             color: white !important;
             font-weight: 500 !important;
+            padding: 6px 12px !important;
+            font-size: 0.88rem !important;
         }
-        .fc .fc-toolbar-chunk:first-child .fc-today-button:hover {
-            background-color: #A30D26 !important;
-            border-color: #A30D26 !important;
-        }
-        .fc .fc-button-primary {
+
+        .fc-button-primary {
             background-color: #C8102E;
             border-color: #C8102E;
-            color: white;
         }
-        .fc .fc-button-primary:hover {
+
+        .fc-button-primary:hover {
             background-color: #A30D26;
             border-color: #A30D26;
         }
-        .fc .fc-button-primary:disabled {
-            background-color: #6B7280;
-            border-color: #6B7280;
-        }
+
         .fc-event {
             border: none;
             padding: 4px 8px;
             font-size: 0.95em;
             border-radius: 4px;
         }
-        .fc-event:hover {
-            opacity: 0.9;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        }
+
         .fc-daygrid-day-number {
             color: #374151;
         }
+
         .fc-col-header-cell-cushion {
             color: #374151;
             font-weight: 600;
-        }
-
-        /* Monitoring Cards Section */
-        .monitoring-section {
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-
-        .monitoring-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .monitoring-header h2 {
-            margin: 0;
-            font-size: 1.5rem;
-        }
-
-        .due-count {
-            background: #c8102e;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .monitoring-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 20px;
-        }
-
-        .monitoring-card {
-            background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: all 0.2s;
-        }
-
-        .monitoring-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-        }
-
-        .monitoring-card.overdue {
-            border-color: #ef4444;
-            background: #fef2f2;
-        }
-
-        .monitoring-card.mae_phase {
-            border-color: #f59e0b;
-            background: #fffbeb;
-        }
-
-        .monitoring-card .title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .monitoring-card .freq {
-            color: #4b5563;
-            font-size: 0.95rem;
-            margin-bottom: 12px;
-        }
-
-        .monitoring-card .due-date {
-            font-weight: 500;
-            margin-bottom: 16px;
-        }
-
-        .monitoring-card .due-date.overdue {
-            color: #ef4444;
-        }
-
-        .monitoring-card .due-date.mae_phase {
-            color: #f59e0b;
-        }
-
-        .monitoring-card .action {
-            display: inline-block;
-            padding: 8px 16px;
-            background: #c8102e;
-            color: white;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-        }
-
-        .monitoring-card .action:hover {
-            background: #a50d24;
-        }
-
-        @media (max-width: 768px) {
-            .monitoring-cards {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
@@ -348,10 +271,20 @@ include 'includes/header.php';
     <main class="dashboard-content">
         <h1>PPA Monitoring Dashboard</h1>
 
-        <!-- Calendar: Activities -->
+        <!-- Calendar Controls -->
+        <div class="calendar-controls">
+            <label for="calendar-filter">Show Schedule For:</label>
+            <select id="calendar-filter">
+                <option value="all">All (Activities + Proposals)</option>
+                <option value="activity">Activities Only</option>
+                <option value="proposal">Proposals Only</option>
+            </select>
+        </div>
+
+        <!-- Calendar -->
         <div id="calendar"></div>
 
-        <!-- Monitoring Due: Programs -->
+        <!-- Program Monitoring Due -->
         <div class="monitoring-section">
             <div class="monitoring-header">
                 <h2>Program Monitoring Due This Period</h2>
@@ -367,21 +300,43 @@ include 'includes/header.php';
             <?php else: ?>
                 <div class="monitoring-cards">
                     <?php foreach ($duePrograms as $prog): ?>
-                        <?php
-                        $cardClass = $prog['overdue'] ? 'overdue' : 'mae_phase';
-                        $dueTextClass = $prog['overdue'] ? 'overdue' : 'mae_phase';
-                        $dueDisplay = $prog['overdue'] 
-                            ? 'Overdue (3+ years incomplete)' 
-                            : 'Ongoing Evaluation (M&E Phase)';
-                        ?>
-
-                        <div class="monitoring-card <?= $cardClass ?>">
+                        <div class="monitoring-card <?= $prog['overdue'] ? 'overdue' : '' ?>">
                             <div class="title"><?= htmlspecialchars($prog['name']) ?></div>
                             <div class="freq">Frequency: <?= htmlspecialchars($prog['freq']) ?></div>
-                            <div class="due-date <?= $dueTextClass ?>">
-                                <?= $dueDisplay ?>
+                            <div class="due-date <?= $prog['overdue'] ? 'overdue' : '' ?>">
+                                <?= htmlspecialchars($prog['due']) ?>
                             </div>
                             <a href="opmm/view.php?id=<?= $prog['id'] ?>" class="action">View Program</a>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Proposals Monitoring Due -->
+        <div class="monitoring-section">
+            <div class="monitoring-header">
+                <h2>Proposals Monitoring Due This Period</h2>
+                <?php if (!empty($dueProposals)): ?>
+                    <span class="due-count"><?= count($dueProposals) ?> due</span>
+                <?php endif; ?>
+            </div>
+
+            <?php if (empty($dueProposals)): ?>
+                <p style="color:#6b7280; text-align:center; font-style:italic;">
+                    All proposals monitoring is up to date.
+                </p>
+            <?php else: ?>
+                <div class="monitoring-cards">
+                    <?php foreach ($dueProposals as $prop): ?>
+                        <div class="monitoring-card <?= $prop['overdue'] ? 'overdue' : '' ?>">
+                            <div class="title"><?= htmlspecialchars($prop['title']) ?></div>
+                            <div class="due-date <?= $prop['overdue'] ? 'overdue' : '' ?>">
+                                <?= $prop['overdue'] ? 'Overdue' : 'Ending Soon' ?> — 
+                                <?= htmlspecialchars(date('M d, Y', strtotime($prop['end_date']))) ?>
+                                (<?= $prop['days'] ?> days)
+                            </div>
+                            <a href="opmm/view_proposals.php?id=<?= $prop['id'] ?>" class="action">View Proposal</a>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -392,14 +347,16 @@ include 'includes/header.php';
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
+        var allEvents = <?= json_encode($calendarEvents) ?>;
+
         var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                right: ''   // Removed week and day views
             },
-            events: <?= json_encode($events) ?>,
+            events: allEvents,
             eventClick: function(info) {
                 if (info.event.url) {
                     window.open(info.event.url, '_blank');
@@ -413,6 +370,22 @@ include 'includes/header.php';
             }
         });
         calendar.render();
+
+        // Filter functionality
+        var filterSelect = document.getElementById('calendar-filter');
+        filterSelect.addEventListener('change', function() {
+            var filter = this.value;
+            calendar.removeAllEvents();
+
+            if (filter === 'all') {
+                calendar.addEventSource(allEvents);
+            } else {
+                var filtered = allEvents.filter(function(event) {
+                    return event.extendedProps.type === filter;
+                });
+                calendar.addEventSource(filtered);
+            }
+        });
     });
     </script>
 </body>

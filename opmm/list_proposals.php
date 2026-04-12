@@ -1,5 +1,5 @@
 <?php
-// list_proposals.php - Research Proposals List (active + overdue only)
+// list_proposals.php
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
@@ -35,21 +35,17 @@ $fullSdgOptions = [
 ];
 
 try {
-    $where = "WHERE status IN ('active', 'overdue')";
+    $where = "WHERE status = 'active'";
     $params = [];
-    $orderBy = "ORDER BY start_date DESC, title ASC";
 
-    // Type filter
     if (!empty($_GET['type'])) {
         $where .= " AND type_of_extension_service_agenda LIKE ?";
         $params[] = '%' . trim($_GET['type']) . '%';
     }
-    // SDG filter
     if (!empty($_GET['sdg'])) {
         $where .= " AND sdg_goals LIKE ?";
         $params[] = '%' . trim($_GET['sdg']) . '%';
     }
-    // Source of Fund filter
     if (!empty($_GET['fund'])) {
         $where .= " AND source_of_fund = ?";
         $params[] = trim($_GET['fund']);
@@ -60,7 +56,7 @@ try {
                type_of_extension_service_agenda, sdg_goals
         FROM research_proposals
         $where
-        $orderBy
+        ORDER BY start_date DESC, title ASC
     ";
 
     $stmt = $pdo->prepare($query);
@@ -70,6 +66,27 @@ try {
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
     $proposals = [];
+}
+
+// Handle marking proposal as Published
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete_proposal'])) {
+    $proposal_id = (int)($_POST['proposal_id'] ?? 0);
+
+    if ($proposal_id > 0) {
+        try {
+            $stmt = $pdo->prepare("
+                UPDATE research_proposals 
+                SET status = 'published', updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $stmt->execute([$proposal_id]);
+
+            header("Location: list_proposals.php?success=published");
+            exit;
+        } catch (PDOException $e) {
+            $error = 'Failed to update proposal: ' . $e->getMessage();
+        }
+    }
 }
 
 $nav_links = [
@@ -122,7 +139,7 @@ $nav_links = [
             color: #6b7280;
         }
 
-        .edit-icon-btn {
+        .edit-icon-btn, .complete-icon-btn {
             flex: 0 0 42px;
             width: 42px;
             height: 42px;
@@ -136,26 +153,16 @@ $nav_links = [
             transition: all 0.2s;
         }
 
-        .edit-icon-btn .material-icons {
+        .edit-icon-btn .material-icons,
+        .complete-icon-btn .material-icons {
             font-size: 1.6rem;
             color: #6b7280;
         }
 
-        .edit-icon-btn:hover {
+        .edit-icon-btn:hover,
+        .complete-icon-btn:hover {
             color: #c8102e;
             background: rgba(200, 16, 46, 0.1);
-        }
-
-        /* Overdue styling */
-        .quarter-btn.overdue {
-            background: #fef2f2 !important;
-            border: 2px solid #ef4444 !important;
-            color: #b91c1c !important;
-        }
-
-        .quarter-btn.overdue:hover {
-            background: #fee2e2 !important;
-            border-color: #dc2626 !important;
         }
     </style>
 </head>
@@ -168,6 +175,7 @@ $nav_links = [
 
             <div class="action-buttons" style="display:flex; gap:12px; justify-content:flex-end; align-items:center;">
                 <a href="add_proposals.php" class="action-btn add">Add New Proposal</a>
+                <a href="complete_proposals.php" class="action-btn archive">Published Proposals</a>
             </div>
         </div>
 
@@ -177,11 +185,11 @@ $nav_links = [
                 <?php if (!empty($error)): ?>
                     <p class="error"><?= htmlspecialchars($error) ?></p>
                 <?php elseif (empty($proposals)): ?>
-                    <p>No research proposals found.</p>
+                    <p>No active proposals found.</p>
                 <?php else: ?>
                     <?php foreach ($proposals as $prop): ?>
                         <div class="quarter-item">
-                            <button class="quarter-btn <?= ($prop['status'] === 'overdue') ? 'overdue' : '' ?>"
+                            <button class="quarter-btn"
                                     onclick="window.location.href='view_proposals.php?id=<?= $prop['id'] ?>'">
                                 <span class="quarter-btn-title"><?= htmlspecialchars($prop['title']) ?></span>
                                 <span class="quarter-btn-subtitle">
@@ -195,6 +203,14 @@ $nav_links = [
                                     title="Edit proposal">
                                 <span class="material-icons">edit</span>
                             </button>
+
+                            <?php if ($prop['status'] === 'active'): ?>
+                                <button class="action-icon complete-icon-btn" 
+                                        onclick="confirmCompleteProposal(<?= $prop['id'] ?>)"
+                                        title="Mark as Published">
+                                    <span class="material-icons">check_circle</span>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -207,6 +223,12 @@ $nav_links = [
         </div>
 
     </main>
+
+    <!-- Hidden form for marking proposal as Published -->
+    <form id="complete-proposal-form" method="POST" style="display:none;">
+        <input type="hidden" name="complete_proposal" value="1">
+        <input type="hidden" name="proposal_id" id="proposal_id_field" value="">
+    </form>
 
     <!-- Filter Modal -->
     <div id="filter-modal" class="modal-overlay">
@@ -246,22 +268,15 @@ $nav_links = [
                 </select>
 
                 <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
-                    <button type="submit"
-                            style="flex: 1; padding: 14px 24px; background: #c8102e; color: white;
-                                   border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;
-                                   font-weight: 600; height: 52px; box-sizing: border-box;">
+                    <button type="submit" style="flex:1; padding:14px 24px; background:#c8102e; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
                         Apply
                     </button>
-                    <button type="button" onclick="closeModal('filter-modal')"
-                            style="flex: 1; padding: 14px 24px; background: #c8102e; color: white;
-                                   border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;
-                                   font-weight: 600; height: 52px; box-sizing: border-box;">
+                    <button type="button" onclick="closeModal('filter-modal')" 
+                            style="flex:1; padding:14px 24px; background:#c8102e; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
                         Cancel
                     </button>
-                    <button type="button" onclick="window.location.href='list_proposals.php'"
-                            style="flex: 1; padding: 14px 24px; background: #c8102e; color: white;
-                                   border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;
-                                   font-weight: 600; height: 52px; box-sizing: border-box;">
+                    <button type="button" onclick="window.location.href='list_proposals.php'" 
+                            style="flex:1; padding:14px 24px; background:#c8102e; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">
                         Clear
                     </button>
                 </div>
@@ -270,10 +285,18 @@ $nav_links = [
     </div>
 
     <script>
+    function confirmCompleteProposal(proposalId) {
+        if (confirm("Mark this proposal as Published? This action cannot be undone.")) {
+            document.getElementById('proposal_id_field').value = proposalId;
+            document.getElementById('complete-proposal-form').submit();
+        }
+    }
+
     function openModal(modalId) {
         document.getElementById(modalId).classList.add('active');
         document.body.classList.add('modal-open');
     }
+
     function closeModal(modalId) {
         document.getElementById(modalId).classList.remove('active');
         document.body.classList.remove('modal-open');

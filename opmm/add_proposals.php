@@ -9,7 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once '../config/db.php';
 
-// ==================== HARDCODED OPTIONS FOR MODALS ====================
+// ==================== HARDCODED OPTIONS ====================
 $fullTypeOptions = [
     "BatStateU Inclusive Social Innovation for Regional Growth (BISIG) Program",
     "Livelihood and other Entrepreneurship related on Agri-Fisheries (LEAF)",
@@ -38,19 +38,11 @@ $fullSdgOptions = [
 $error = '';
 $show_confirmation = false;
 
-// Restore form data when user cancels from confirmation
+// Restore form data when cancelling from confirmation
 $formData = $_POST;
 if (isset($_GET['cancel']) && $_GET['cancel'] === '1' && isset($_SESSION['pending_proposal'])) {
     $formData = $_SESSION['pending_proposal'];
-    $formData['title']          = $formData['title'] ?? '';
-    $formData['description']    = $formData['description'] ?? '';
-    $formData['start_date']     = $formData['start_date'] ?? '';
-    $formData['end_date']       = $formData['end_date'] ?? '';
-    $formData['type']           = $formData['type'] ?? '';
-    $formData['sdg']            = $formData['sdg'] ?? '';
-    $formData['offices']        = $formData['offices'] ?? '';
-    $formData['programs']       = $formData['programs'] ?? '';
-    $formData['beneficiaries']  = $formData['beneficiaries_json'] ?? '[]';
+    $formData['beneficiaries'] = $formData['beneficiaries_json'] ?? '[]';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -62,8 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO research_proposals (
                     title, description, start_date, end_date,
                     type_of_extension_service_agenda, sdg_goals,
-                    offices_involved, programs_involved, beneficiaries_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    offices_involved, programs_involved, beneficiaries_json,
+                    partner_agencies, source_of_fund, total_cost
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $d['title'], 
@@ -74,7 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $d['sdg'], 
                 $d['offices'], 
                 $d['programs'], 
-                $d['beneficiaries_json']
+                $d['beneficiaries_json'],
+                $d['partner_agencies'],
+                $d['source_of_fund'],
+                $d['total_cost']
             ]);
 
             unset($_SESSION['pending_proposal']);
@@ -84,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Failed to save proposal: ' . $e->getMessage();
         }
     } else {
+        // Initial form submission
         $title          = trim($_POST['title'] ?? '');
         $description    = trim($_POST['description'] ?? '');
         $start_date     = $_POST['start_date'] ?? '';
@@ -93,6 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $offices        = trim($_POST['offices_involved'] ?? '');
         $programs       = trim($_POST['programs_involved'] ?? '');
         $beneficiaries  = trim($_POST['beneficiaries_json'] ?? '[]');
+        $partner_agencies = trim($_POST['partner_agencies'] ?? '');
+        $source_of_fund = trim($_POST['source_of_fund'] ?? '');
+        $total_cost     = (float)($_POST['total_cost'] ?? 0);
 
         $benefData = json_decode($beneficiaries, true) ?? [];
         $totalBenef = 0;
@@ -102,8 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($title) || empty($start_date) || empty($end_date) ||
             empty($type) || empty($sdg) || empty($offices) || empty($programs) ||
-            $beneficiaries === '[]' || $totalBenef === 0) {
-            $error = 'Please fill all required fields (at least one beneficiary with total > 0).';
+            $beneficiaries === '[]' || $totalBenef === 0 ||
+            empty($partner_agencies) || empty($source_of_fund) || $total_cost <= 0) {
+            $error = 'Please fill all required fields.';
         } elseif (strtotime($end_date) < strtotime($start_date)) {
             $error = 'End date cannot be before start date.';
         } else {
@@ -116,7 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'sdg'            => $sdg,
                 'offices'        => $offices,
                 'programs'       => $programs,
-                'beneficiaries_json' => $beneficiaries
+                'beneficiaries_json' => $beneficiaries,
+                'partner_agencies' => $partner_agencies,
+                'source_of_fund' => $source_of_fund,
+                'total_cost'     => $total_cost
             ];
             $show_confirmation = true;
         }
@@ -141,7 +145,6 @@ $nav_links = [
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        /* Description textarea in form */
         #description {
             width: 100%;
             min-height: 78px;
@@ -160,21 +163,7 @@ $nav_links = [
         #description:focus {
             border-color: #c8102e;
             outline: none;
-        }
-
-        /* Full description modal - multiple lines with vertical scroll */
-.full-desc-content {
-    white-space: pre-wrap;        /* Preserves line breaks and wraps long lines */
-    word-wrap: break-word;
-    max-height: 420px;
-    overflow-y: auto;             /* Scroll top to bottom when long */
-    padding: 18px;
-    background: #f9fafb;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    line-height: 1.65;
-    font-size: 1rem;
-}
+            box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1);
         }
     </style>
 </head>
@@ -227,15 +216,29 @@ $nav_links = [
                         <p><?= htmlspecialchars($d['programs']) ?: 'None' ?></p>
                     </div>
 
-                    <!-- Clickable description (fixed) -->
                     <div class="confirm-item full-span">
                         <strong>Description</strong>
                         <p>
                             <a href="javascript:void(0)" onclick="showFullDescription()" 
-                               style="color: #c8102e; text-decoration: underline; cursor: pointer; font-weight: 500;">
+                               style="color: #c8102e; text-decoration: underline; cursor: pointer;">
                                 Click here to view full description
                             </a>
                         </p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Partner Agencies</strong>
+                        <p><?= htmlspecialchars($d['partner_agencies'] ?: 'None') ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Source of Fund</strong>
+                        <p><?= htmlspecialchars($d['source_of_fund'] ?: 'None') ?></p>
+                    </div>
+
+                    <div class="confirm-item">
+                        <strong>Total Cost</strong>
+                        <p>₱<?= number_format($d['total_cost'], 2) ?></p>
                     </div>
 
                     <div class="confirm-item full-span">
@@ -337,6 +340,28 @@ $nav_links = [
                            value="<?= htmlspecialchars($formData['programs'] ?? '') ?>" required>
                 </div>
 
+                <div class="form-group">
+                    <label for="partner_agencies">Partner Agencies *</label>
+                    <input type="text" id="partner_agencies" name="partner_agencies" 
+                           value="<?= htmlspecialchars($formData['partner_agencies'] ?? '') ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="source_of_fund">Source of Fund *</label>
+                    <select id="source_of_fund" name="source_of_fund" required>
+                        <option value="">Select Source</option>
+                        <option value="MDS" <?= ($formData['source_of_fund'] ?? '') === 'MDS' ? 'selected' : '' ?>>MDS</option>
+                        <option value="STF" <?= ($formData['source_of_fund'] ?? '') === 'STF' ? 'selected' : '' ?>>STF</option>
+                        <option value="Others" <?= ($formData['source_of_fund'] ?? '') === 'Others' ? 'selected' : '' ?>>Others</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="total_cost">Total Cost *</label>
+                    <input type="number" id="total_cost" name="total_cost" step="0.01" min="0" 
+                           value="<?= htmlspecialchars($formData['total_cost'] ?? '') ?>" required>
+                </div>
+
                 <div class="full-span" style="text-align: center; margin-top: 24px;">
                     <button type="submit">Review & Add</button>
                 </div>
@@ -419,9 +444,9 @@ $nav_links = [
         </div>
     </div>
 
-    <!-- Full Description Pop-up Modal (Improved) -->
+    <!-- Description Pop-up Modal -->
     <div id="description-modal" class="modal-overlay">
-        <div class="modal-box" style="max-width: 720px; max-height: 85vh;">
+        <div class="modal-box" style="max-width: 720px;">
             <span class="close-modal" onclick="closeModal('description-modal')">×</span>
             <h2>Full Description</h2>
             <div id="full-description-content" class="full-desc-content"></div>
@@ -436,20 +461,17 @@ $nav_links = [
 
     <script>
     function openModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) modal.classList.add('active');
+        document.getElementById(modalId).classList.add('active');
         document.body.classList.add('modal-open');
     }
 
     function closeModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) modal.classList.remove('active');
+        document.getElementById(modalId).classList.remove('active');
         document.body.classList.remove('modal-open');
     }
 
     function saveModalSelections(type) {
         const modal = document.getElementById(type + '-modal');
-        if (!modal) return;
         const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
         const values = Array.from(checkboxes).map(cb => cb.value.trim());
 
@@ -466,20 +488,8 @@ $nav_links = [
         closeModal(type + '-modal');
     }
 
-    // Improved showFullDescription function
-    function showFullDescription() {
-        const desc = <?= json_encode(isset($d) && $show_confirmation ? $d['description'] : '') ?> || 
-                     (document.getElementById('description') ? document.getElementById('description').value.trim() : 'No description provided.');
-        
-        const contentDiv = document.getElementById('full-description-content');
-        contentDiv.textContent = desc;   // This preserves line breaks naturally
-        openModal('description-modal');
-    }
-
     function addBeneficiaryRow(type = '', male = 0, female = 0) {
         const container = document.getElementById('beneficiary-rows');
-        if (!container) return;
-
         const row = document.createElement('div');
         row.className = 'beneficiary-row';
         row.style.display = 'flex';
@@ -510,44 +520,44 @@ $nav_links = [
 
         rows.forEach(row => {
             const inputs = row.querySelectorAll('input');
-            const type = inputs[0] ? inputs[0].value.trim() : '';
-            const male = inputs[1] ? parseInt(inputs[1].value) || 0 : 0;
-            const female = inputs[2] ? parseInt(inputs[2].value) || 0 : 0;
+            const type = inputs[0].value.trim();
+            const male = parseInt(inputs[1].value) || 0;
+            const female = parseInt(inputs[2].value) || 0;
 
             if (type) {
                 data.push({ type, male, female });
             }
         });
 
-        const hidden = document.getElementById('beneficiaries-json');
-        if (hidden) hidden.value = JSON.stringify(data);
+        document.getElementById('beneficiaries-json').value = JSON.stringify(data);
 
-        const preview = document.getElementById('selected-beneficiaries');
-        if (preview) {
-            let summary = '';
-            let total = 0;
-            data.forEach(b => {
-                summary += `${b.type}: ${b.male} M, ${b.female} F | `;
-                total += b.male + b.female;
-            });
-            summary += total > 0 ? `Total: ${total}` : 'None';
-            preview.textContent = summary.trim();
-        }
+        let summary = '';
+        let total = 0;
+        data.forEach(b => {
+            summary += `${b.type}: ${b.male} M, ${b.female} F | `;
+            total += b.male + b.female;
+        });
+        summary += total > 0 ? `Total: ${total}` : 'None';
+
+        document.getElementById('selected-beneficiaries').textContent = summary.trim();
 
         closeModal('beneficiaries-modal');
     }
 
+    function showFullDescription() {
+        const desc = document.getElementById('description').value.trim() || 'No description provided.';
+        document.getElementById('full-description-content').textContent = desc;
+        openModal('description-modal');
+    }
+
     window.addEventListener('load', function() {
-        const hidden = document.getElementById('beneficiaries-json');
-        if (hidden) {
-            const json = hidden.value || '[]';
-            try {
-                const data = JSON.parse(json);
-                data.forEach(b => addBeneficiaryRow(b.type || '', b.male || 0, b.female || 0));
-                saveBeneficiaries();
-            } catch (e) {
-                console.error('Invalid beneficiaries JSON on load:', e);
-            }
+        const json = document.getElementById('beneficiaries-json')?.value || '[]';
+        try {
+            const data = JSON.parse(json);
+            data.forEach(b => addBeneficiaryRow(b.type, b.male, b.female));
+            saveBeneficiaries();
+        } catch (e) {
+            console.error('Invalid beneficiaries JSON on load:', e);
         }
     });
     </script>
