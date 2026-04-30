@@ -188,7 +188,6 @@ include 'includes/header.php';
             border: 1px solid #E5E7EB;
         }
 
-        /* Compact calendar controls */
         .calendar-controls {
             max-width: 1200px;
             margin: 20px auto 10px;
@@ -213,7 +212,7 @@ include 'includes/header.php';
             min-width: 220px;
         }
 
-        /* Calendar Toolbar Styling - Today button aligned with < > */
+        /* Calendar Toolbar Styling */
         .fc-toolbar-chunk {
             display: flex;
             align-items: center;
@@ -225,7 +224,7 @@ include 'includes/header.php';
         }
 
         .fc-button {
-            padding: 6px 10px !important;
+            padding: 6px 12px !important;
             font-size: 0.92rem !important;
             min-width: 44px;
         }
@@ -235,8 +234,6 @@ include 'includes/header.php';
             border-color: #C8102E !important;
             color: white !important;
             font-weight: 500 !important;
-            padding: 6px 12px !important;
-            font-size: 0.88rem !important;
         }
 
         .fc-button-primary {
@@ -249,20 +246,17 @@ include 'includes/header.php';
             border-color: #A30D26;
         }
 
-        .fc-event {
-            border: none;
-            padding: 4px 8px;
-            font-size: 0.95em;
-            border-radius: 4px;
+        /* Overview Button Styling */
+        .fc-overview-button {
+            background-color: #C8102E !important;
+            border-color: #C8102E !important;
+            color: white !important;
+            font-weight: 500 !important;
         }
 
-        .fc-daygrid-day-number {
-            color: #374151;
-        }
-
-        .fc-col-header-cell-cushion {
-            color: #374151;
-            font-weight: 600;
+        .fc-overview-button:hover {
+            background-color: #A30D26 !important;
+            border-color: #A30D26 !important;
         }
     </style>
 </head>
@@ -354,7 +348,16 @@ include 'includes/header.php';
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: ''   // Removed week and day views
+                right: 'overview'     // <-- Overview button placed here
+            },
+            customButtons: {
+                overview: {
+                    text: 'Overview',
+                    click: function() {
+                        // Change this path to your actual Excel file location
+                        window.open('documents/ppa_master.xlsx', '_blank');
+                    }
+                }
             },
             events: allEvents,
             eventClick: function(info) {

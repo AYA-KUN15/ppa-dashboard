@@ -4,7 +4,7 @@
 define('BASE_URL', '/opmm-dashboard/');   // ← your project root path
 
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '1.1.1');
+    define('APP_VERSION', '1.2.0');
 }
 ?>
 
