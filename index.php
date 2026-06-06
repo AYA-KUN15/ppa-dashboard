@@ -9,9 +9,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 
 require_once 'config/db.php';
 
-// ────────────────────────────────────────────────
-// 1. Calendar Events: Activities + Proposals
-// ────────────────────────────────────────────────
+// Calendar Events
 $calendarEvents = [];
 
 try {
@@ -58,9 +56,7 @@ try {
     // silent fail
 }
 
-// ────────────────────────────────────────────────
-// 2. Program Monitoring Due
-// ────────────────────────────────────────────────
+// Program Monitoring Due
 $today = date('Y-m-d');
 $duePrograms = [];
 
@@ -72,56 +68,35 @@ try {
             p.duration_start, 
             p.duration_end, 
             p.monitoring_frequency, 
-            p.status,
-            COUNT(a.id) AS total_activities,
-            SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) AS completed_activities
+            p.status
         FROM program_entries p
-        LEFT JOIN project_entries pr ON pr.program_id = p.id
-        LEFT JOIN activity_entries a ON a.project_id = pr.id
         WHERE p.status IN ('overdue', 'mae_phase')
           AND p.duration_start IS NOT NULL
           AND p.duration_end IS NOT NULL
-        GROUP BY p.id
         ORDER BY p.duration_start ASC
     ");
     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($programs as $prog) {
         $freq = strtolower($prog['monitoring_frequency'] ?? '');
-        $start = new DateTime($prog['duration_start']);
 
         if ($prog['status'] === 'mae_phase') {
             $duePrograms[] = [
-                'id'       => $prog['id'],
-                'name'     => $prog['program_title'],
-                'freq'     => ucfirst($freq),
-                'due'      => 'Ongoing Evaluation (M&E Phase)',
-                'overdue'  => false,
-                'special'  => 'mae_phase'
+                'id' => $prog['id'], 'name' => $prog['program_title'], 'freq' => ucfirst($freq),
+                'due' => 'Ongoing Evaluation (M&E Phase)', 'overdue' => false, 'special' => 'mae_phase'
             ];
-            continue;
-        }
-
-        if ($prog['status'] === 'overdue') {
+        } else {
             $duePrograms[] = [
-                'id'       => $prog['id'],
-                'name'     => $prog['program_title'],
-                'freq'     => ucfirst($freq),
-                'due'      => 'Overdue (3+ years incomplete)',
-                'overdue'  => true,
-                'special'  => 'overdue'
+                'id' => $prog['id'], 'name' => $prog['program_title'], 'freq' => ucfirst($freq),
+                'due' => 'Overdue (3+ years incomplete)', 'overdue' => true, 'special' => 'overdue'
             ];
-            continue;
         }
     }
 } catch (PDOException $e) {
     error_log("Monitoring query error: " . $e->getMessage());
-    $duePrograms = [];
 }
 
-// ────────────────────────────────────────────────
-// 3. Proposals Monitoring Due This Period
-// ────────────────────────────────────────────────
+// Proposals Monitoring Due
 $dueProposals = [];
 
 try {
@@ -143,22 +118,21 @@ try {
 
         if ($isOverdue || $isNearEnd) {
             $dueProposals[] = [
-                'id'      => $prop['id'],
-                'title'   => $prop['title'],
-                'end_date'=> $prop['end_date'],
-                'days'    => $daysUntil,
+                'id' => $prop['id'],
+                'title' => $prop['title'],
+                'end_date' => $prop['end_date'],
+                'days' => $daysUntil,
                 'overdue' => $isOverdue
             ];
         }
     }
 } catch (PDOException $e) {
     error_log("Proposals due query error: " . $e->getMessage());
-    $dueProposals = [];
 }
 
 $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => true],
-    ['url' => 'opmm/list.php', 'label' => 'PPA', 'active' => false],
+    ['url' => 'opmm/list.php', 'label' => 'Dashboard', 'active' => false],
     ['url' => '/opmm/list_proposals.php', 'label' => 'Proposals', 'active' => false],
 ];
 
@@ -173,7 +147,7 @@ include 'includes/header.php';
     <title>PPA Dashboard - Home</title>
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- FullCalendar v6 -->
+    <!-- FullCalendar -->
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
@@ -212,51 +186,108 @@ include 'includes/header.php';
             min-width: 220px;
         }
 
-        /* Calendar Toolbar Styling */
-        .fc-toolbar-chunk {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .fc-toolbar-title {
-            margin: 0 12px !important;
-        }
-
+        /* Calendar Toolbar - Original Style */
+        .fc-toolbar-chunk { display: flex; align-items: center; gap: 4px; }
+        .fc-toolbar-title { margin: 0 12px !important; }
         .fc-button {
             padding: 6px 12px !important;
             font-size: 0.92rem !important;
             min-width: 44px;
         }
-
         .fc-today-button {
             background-color: #C8102E !important;
             border-color: #C8102E !important;
             color: white !important;
             font-weight: 500 !important;
         }
-
         .fc-button-primary {
             background-color: #C8102E;
             border-color: #C8102E;
         }
-
         .fc-button-primary:hover {
             background-color: #A30D26;
             border-color: #A30D26;
         }
 
-        /* Overview Button Styling */
+        /* Overview Button - Red like Today */
         .fc-overview-button {
             background-color: #C8102E !important;
             border-color: #C8102E !important;
             color: white !important;
             font-weight: 500 !important;
         }
-
         .fc-overview-button:hover {
             background-color: #A30D26 !important;
             border-color: #A30D26 !important;
+        }
+
+        /* === Monitoring Cards UI === */
+        .monitoring-section {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .monitoring-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .monitoring-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .monitoring-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s;
+        }
+
+        .monitoring-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .monitoring-card.overdue {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .monitoring-card.mae_phase {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .due-date.overdue { color: #ef4444; font-weight: 600; }
+        .due-date.mae_phase { color: #f59e0b; font-weight: 600; }
+
+        .monitoring-card .title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .monitoring-card .freq {
+            color: #4b5563;
+            margin-bottom: 12px;
+        }
+
+        .monitoring-card .action {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: #c8102e;
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -294,10 +325,10 @@ include 'includes/header.php';
             <?php else: ?>
                 <div class="monitoring-cards">
                     <?php foreach ($duePrograms as $prog): ?>
-                        <div class="monitoring-card <?= $prog['overdue'] ? 'overdue' : '' ?>">
+                        <div class="monitoring-card <?= $prog['overdue'] ? 'overdue' : ($prog['special'] === 'mae_phase' ? 'mae_phase' : '') ?>">
                             <div class="title"><?= htmlspecialchars($prog['name']) ?></div>
                             <div class="freq">Frequency: <?= htmlspecialchars($prog['freq']) ?></div>
-                            <div class="due-date <?= $prog['overdue'] ? 'overdue' : '' ?>">
+                            <div class="due-date <?= $prog['overdue'] ? 'overdue' : ($prog['special'] === 'mae_phase' ? 'mae_phase' : '') ?>">
                                 <?= htmlspecialchars($prog['due']) ?>
                             </div>
                             <a href="opmm/view.php?id=<?= $prog['id'] ?>" class="action">View Program</a>
@@ -348,13 +379,12 @@ include 'includes/header.php';
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: 'overview'     // <-- Overview button placed here
+                right: 'overview'
             },
             customButtons: {
                 overview: {
                     text: 'Overview',
                     click: function() {
-                        // Change this path to your actual Excel file location
                         window.open('documents/ppa_master.xlsx', '_blank');
                     }
                 }
@@ -367,25 +397,18 @@ include 'includes/header.php';
                 }
             },
             height: 'auto',
-            contentHeight: 'auto',
-            eventDidMount: function(info) {
-                info.el.title = info.event.title;
-            }
+            contentHeight: 'auto'
         });
         calendar.render();
 
-        // Filter functionality
         var filterSelect = document.getElementById('calendar-filter');
         filterSelect.addEventListener('change', function() {
             var filter = this.value;
             calendar.removeAllEvents();
-
             if (filter === 'all') {
                 calendar.addEventSource(allEvents);
             } else {
-                var filtered = allEvents.filter(function(event) {
-                    return event.extendedProps.type === filter;
-                });
+                var filtered = allEvents.filter(event => event.extendedProps.type === filter);
                 calendar.addEventSource(filtered);
             }
         });

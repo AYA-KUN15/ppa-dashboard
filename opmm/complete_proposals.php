@@ -26,7 +26,7 @@ try {
 
 $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => false],
-    ['url' => '/opmm/list.php', 'label' => 'PPA', 'active' => false],
+    ['url' => '/opmm/list.php', 'label' => 'Dashboard', 'active' => false],
     ['url' => '/opmm/list_proposals.php', 'label' => 'Proposals', 'active' => false],
 ];
 ?>

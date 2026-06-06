@@ -32,13 +32,21 @@ try {
         exit;
     }
 
+    // === AUTOMATIC STATUS CALCULATION ===
+    $today = date('Y-m-d');
+    if ($proposal['end_date'] < $today) {
+        $proposal['status'] = 'overdue';
+    } elseif (empty($proposal['status']) || $proposal['status'] === 'active') {
+        $proposal['status'] = 'active';
+    }
+
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
 }
 
 $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => false],
-    ['url' => '/opmm/list.php', 'label' => 'PPA', 'active' => false],
+    ['url' => '/opmm/list.php', 'label' => 'Dashboard', 'active' => false],
     ['url' => '/opmm/list_proposals.php', 'label' => 'Proposals', 'active' => false],
 ];
 ?>
@@ -73,7 +81,7 @@ $nav_links = [
             font-size: 1rem;
         }
 
-        /* Status text colors (matching your reference style - text color only) */
+        /* Status text colors */
         .status-text {
             font-weight: 600;
             font-size: 1rem;
@@ -100,7 +108,6 @@ $nav_links = [
                 <p><strong>Offices Involved:</strong> <?= htmlspecialchars($proposal['offices_involved'] ?: 'None') ?></p>
                 <p><strong>Programs Involved:</strong> <?= htmlspecialchars($proposal['programs_involved'] ?: 'None') ?></p>
 
-                <!-- Description on same line -->
                 <p>
                     <strong>Description:</strong> 
                     <a href="javascript:void(0)" onclick="showFullDescription()" 

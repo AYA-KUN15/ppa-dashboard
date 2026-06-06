@@ -35,7 +35,7 @@ $fullSdgOptions = [
 ];
 
 try {
-    $where = "WHERE status = 'active'";
+    $where = "";
     $params = [];
 
     if (!empty($_GET['type'])) {
@@ -55,13 +55,23 @@ try {
         SELECT id, title, start_date, end_date, status,
                type_of_extension_service_agenda, sdg_goals
         FROM research_proposals
-        $where
+        WHERE 1=1 $where
         ORDER BY start_date DESC, title ASC
     ";
 
     $stmt = $pdo->prepare($query);
     $stmt->execute($params);
     $proposals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // === AUTOMATIC STATUS DETERMINATION ===
+    $today = date('Y-m-d');
+    foreach ($proposals as &$prop) {
+        if ($prop['end_date'] < $today) {
+            $prop['status'] = 'overdue';
+        } elseif (empty($prop['status']) || $prop['status'] === '') {
+            $prop['status'] = 'active';
+        }
+    }
 
 } catch (PDOException $e) {
     $error = "Database error: " . $e->getMessage();
@@ -91,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete_proposal']))
 
 $nav_links = [
     ['url' => 'index.php', 'label' => 'Home', 'active' => false],
-    ['url' => '/opmm/list.php', 'label' => 'PPA', 'active' => false],
+    ['url' => 'opmm/list.php', 'label' => 'Dashboard', 'active' => false],
     ['url' => '/opmm/list_proposals.php', 'label' => 'Proposals', 'active' => true],
 ];
 ?>
@@ -185,7 +195,7 @@ $nav_links = [
                 <?php if (!empty($error)): ?>
                     <p class="error"><?= htmlspecialchars($error) ?></p>
                 <?php elseif (empty($proposals)): ?>
-                    <p>No active proposals found.</p>
+                    <p>No proposals found.</p>
                 <?php else: ?>
                     <?php foreach ($proposals as $prop): ?>
                         <div class="quarter-item">
